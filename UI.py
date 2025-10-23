@@ -16,7 +16,7 @@
 """
 基于PyQt实现用户界面
 """
-__version__ = "0.0.1.1"
+__version__ = "0.0.1.2"
 
 import sys
 from PyQt5.QtWidgets import (
@@ -382,6 +382,11 @@ class ItemEditDialog(QDialog):
         self.password_input.setEchoMode(QLineEdit.Password)  # 密码隐藏
         self.password_input.setPlaceholderText("请输入密码（将自动加密存储）")
         form_layout.addRow("密码：", self.password_input)
+        # 5. 密码确认框
+        self.password_check = QLineEdit()
+        self.password_check.setEchoMode(QLineEdit.Password)  # 密码隐藏
+        self.password_check.setPlaceholderText("请重复输入密码以确认")
+        form_layout.addRow("重复密码：", self.password_check)
         # 2. 关联输入框（可选）
         self.link_input = QLineEdit(self.item_data.get("LinkURL", ""))
         self.link_input.setPlaceholderText("可选：输入相关联的URL")
@@ -448,6 +453,10 @@ class ItemEditDialog(QDialog):
             return
         if not self.item_data["UserName"]:
             msg_box = ErrorDialog(self, "警告：用户名不能为空")
+            msg_box.exec_()
+            return
+        if self.item_data["Password"] != self.password_check.text().strip():
+            msg_box = ErrorDialog(self, "警告：重复密码不一致")
             msg_box.exec_()
             return
         self.accept()
@@ -579,14 +588,14 @@ class MainWindow(QMainWindow):
         items = self.password_book.get_non_secret_items()
         if not items:
             self.status_bar.showMessage("提示：当前无密码条目，可点击「添加条目」创建", 3000)
-            return
+            # return 继续添加按钮
         # 3. 遍历数据，填充表格
         for row_idx, item in enumerate(items):
             self.item_table.insertRow(row_idx)
             self.item_table.setRowHeight(row_idx, 35)
             # 为每行的每列设置数据（与table_columns对应）
             self.item_table.setItem(row_idx, 0, QTableWidgetItem(item["Index"]))
-            self.item_table.setItem(row_idx, 1, QTableWidgetItem(item["URL"]))
+            self.item_table.setItem(row_idx, 1, QTableWidgetItem(item["URL"]))  # TODO：使URL能够通过默认浏览器直接访问
             self.item_table.setItem(row_idx, 2, QTableWidgetItem(item["UserName"]))
             self.item_table.setItem(row_idx, 3, QTableWidgetItem("  ********  "))
             self.item_table.setItem(row_idx, 4, QTableWidgetItem(item["LinkURL"]))
