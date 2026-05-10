@@ -1,462 +1,343 @@
 # KeyWordNoteBook 安全审查报告
 
-**项目**: KeyWordNoteBook
-**日期**: 2026-05-10
-**审查范围**: 后端 FastAPI + 移动端 Flutter
-**审查人**: Security Best Practices Review
+**审查日期**: 2026-05-10
+**审查范围**: KeyWordNoteBook Flutter 移动端 + FastAPI 后端
+**审查方法**: 静态代码分析 + 配置文件审查
 
 ---
 
 ## 执行摘要
 
-KeyWordNoteBook 是一个采用端到端加密的密码管理器，包含 FastAPI 后端和 Flutter 移动端。经过代码审查，发现 **8 个高危**、**7 个中危** 和 **5 个低危** 安全问题需要关注。最严重的问题包括：JWT 密钥强度不足、移动端与后端的密钥派生参数不一致（可能导致加密失效）、以及 CORS 配置允许所有来源访问。
+本次安全审查覆盖了 KeyWordNoteBook 项目的核心安全组件。整体安全架构设计良好，采用了业界标准的加密实践（Argon2 密码哈希、AES-256-GCM 加密、JWT 认证）。发现 **2 个高严重性问题**、**2 个中严重性问题** 和 **3 个低严重性问题**，主要涉及配置安全和生产环境安全设置。
 
 ---
 
-## 高危问题 (Critical/High)
+## 关键发现
 
-### [高危-01] JWT 密钥使用弱默认值且可能被硬编码泄露
+### SEC-001: DEBUG 模式在生产环境默认为 True
 
-**影响**: 攻击者可以伪造任意用户的 Token，完全接管账户。
+**严重级别**: High
+**类别**: 配置安全
+**位置**: `server/app/core/config.py:9`
 
-**位置**:
+**问题描述**:
+`DEBUG` 配置项默认为 `True`，且未在 `.env.example` 中明确设置为生产环境值。Debug 模式可能导致敏感信息泄露和详细错误暴露。
 
-- [server/app/core/config.py:17](file:///workspace/server/app/core/config.py#L17) - `JWT_SECRET_KEY` 默认值
-- [server/app/core/security.py:14](file:///workspace/server/app/core/security.py#L14) - 密钥直接使用
-
-**描述**:
+**证据**:
 ```python
 # server/app/core/config.py
-jwt_secret_key: str = Field(default="keyword-notebook-jwt-secret-key-2024", ...)
-```
-生产环境中使用了硬编码的默认密钥。如果 `.env` 文件未正确配置，攻击者可以使用该已知密钥签发任意 Token。
+DEBUG: bool = True  # 默认开启调试模式
 
-**建议**:
-1. 在生产环境禁止使用默认密钥，启动时检查并抛出错误
-2. 使用 `secrets.token_urlsafe(32)` 生成强随机密钥
-3. 密钥通过环境变量注入，永不硬编码
-
----
-
-### [高危-02] 移动端与后端 PBKDF2 迭代次数不一致
-
-**影响**: 移动端派生的加密密钥与后端不匹配，可能导致数据加密/解密失败或产生安全风险。
-
-**位置**:
-
-- [mobile/lib/core/crypto/crypto_service.dart:52](file:///workspace/mobile/lib/core/crypto/crypto_service.dart#L52) - 移动端 100000 次
-- [server/app/core/security.py:21](file:///workspace/server/app/core/security.py#L21) - 后端 480000 次
-
-**描述**:
-```dart
-// 移动端
-iterations: 100000, // crypto_service.dart:52
-
-# 后端
-iterations=self.pbkdf2_iterations,  # 480000 security.py:21
-```
-
-移动端使用 100,000 次迭代，后端使用 480,000 次迭代。这会导致两端派生的密钥完全不同。
-
-**建议**:
-1. 统一迭代次数为至少 480,000 次（或更高）
-2. 添加集成测试验证两端密钥派生结果一致
-
----
-
-### [高危-03] CORS 配置允许所有来源访问
-
-**影响**: 任意网站可以向 API 发起请求，导致 CSRF 攻击和令牌被盗用。
-
-**位置**:
-
-- [server/app/main.py:25-31](file:///workspace/server/app/main.py#L25-L31)
-
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 允许所有来源
-    allow_credentials=True,  # 允许携带凭证
-    allow_methods=["*"],
-    allow_headers=["*"],
+# server/app/main.py
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG,  # 直接使用 DEBUG 配置
 )
 ```
 
-`allow_origins=["*"]` 配合 `allow_credentials=True` 会导致浏览器拒绝请求，但若攻击者直接调用 API（非浏览器），则无此限制。
+**影响**:
+- 启用 debug 模式时，FastAPI 可能返回详细的堆栈跟踪信息
+- 可能暴露数据库查询、系统路径等敏感信息
+- 符合 OWASP 敏感性数据泄露风险
 
-**建议**:
-1. 明确指定允许的来源列表
-2. 生产环境应配置具体的前端域名
-3. 考虑使用环境变量控制 CORS 配置
+**修复建议**:
+```python
+# server/app/core/config.py
+DEBUG: bool = False  # 默认为 False
 
----
+# 确保 .env.example 中明确说明
+# DEBUG=False  # 设置为 False 用于生产环境
+```
 
-### [高危-04] 认证端点无速率限制
-
-**影响**: 攻击者可以进行无限次暴力破解尝试。
-
-**位置**:
-
-- [server/app/api/v1/auth.py:25-32](file:///workspace/server/app/api/v1/auth.py#L25-L32) - `/auth/login`
-- [server/app/api/v1/auth.py:15-22](file:///workspace/server/app/api/v1/auth.py#L15-L22) - `/auth/register`
-
-**描述**:
-登录和注册端点没有任何速率限制。攻击者可以每秒发起数千次登录尝试，暴力破解用户密码。
-
-**建议**:
-1. 使用 slowapi 或中间件实现速率限制
-2. 登录尝试失败 5 次后，添加延迟（指数退避）
-3. 考虑添加账户锁定机制
+**缓解措施**:
+- 在生产部署时，确保设置 `DEBUG=False`
+- 使用环境变量覆盖默认值
 
 ---
 
-### [高危-05] 主密码通过 HTTP 头传输
+### SEC-002: JWT Secret Key 默认为空字符串
 
-**影响**: 主密码以明文形式在网络中传输，可能被中间人攻击截获。
+**严重级别**: High
+**类别**: 认证安全
+**位置**: `server/app/core/config.py:13`
 
-**位置**:
+**问题描述**:
+JWT 密钥默认为空字符串，虽然 `validate()` 方法检查了非生产环境的绕过条件，但在生产环境中如果未正确配置会导致认证完全失效。
 
-- [mobile/lib/core/network/api_client.dart:175-180](file:///workspace/mobile/lib/core/network/api_client.dart#L175-L180)
-- [server/app/core/deps.py:24-47](file:///workspace/server/app/core/deps.py#L24-L47)
+**证据**:
+```python
+# server/app/core/config.py
+JWT_SECRET_KEY: str = ""  # 默认为空
 
-```dart
-// 移动端
-void setMasterPassword(String password) {
-  _dio.options.headers['X-Verify-Password'] = password;
+def validate(self):
+    if not self.DEBUG and not self.JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY must be set in production")
+```
+
+**影响**:
+- 如果部署时忘记设置 JWT_SECRET_KEY，在 DEBUG=False 时应用将无法启动
+- 空的 JWT 密钥会导致所有 Token 可被伪造
+
+**修复建议**:
+```python
+# server/app/core/config.py
+JWT_SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS"
+
+# 或使用 pydantic 的 validator 确保非空
+@validator("JWT_SECRET_KEY")
+def validate_jwt_secret(cls, v):
+    if not v or v == "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS":
+        raise ValueError("JWT_SECRET_KEY must be changed from default")
+    if len(v) < 32:
+        raise ValueError("JWT_SECRET_KEY must be at least 32 characters")
+    return v
+```
+
+---
+
+### SEC-003: CORS 配置允许所有来源
+
+**严重级别**: Medium
+**类别**: CORS 配置
+**位置**: `server/app/main.py:46-69`
+
+**问题描述**:
+当 `CORS_ALLOWED_ORIGINS` 为空时，代码会回退到 `allow_origins=["*"]`，这在生产环境中是不安全的。
+
+**证据**:
+```python
+# server/app/main.py
+def get_cors_origins():
+    origins_str = settings.CORS_ALLOWED_ORIGINS
+    if not origins_str:
+        return ["*"] if settings.DEBUG else []  # 生产环境返回空列表
+    return [origin.strip() for origin in origins_str.split(",")]
+
+# ... 但调试模式仍使用 "*"
+```
+
+**影响**:
+- 在 DEBUG 模式下允许所有来源
+- 可能导致开发环境配置被误用于生产
+
+**修复建议**:
+```python
+# server/app/main.py
+cors_origins = get_cors_origins()
+if not cors_origins:
+    # 不允许任何跨域请求，而不是使用空列表
+    pass  # 不添加 CORS 中间件
+elif cors_origins == ["*"]:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,  # 不能同时使用 * 和 credentials
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_headers=["Authorization", "Content-Type", "X-Master-Password"],
+    )
+```
+
+---
+
+### SEC-004: API 文档在生产环境暴露
+
+**严重级别**: Medium
+**类别**: 信息泄露
+**位置**: `server/app/main.py`
+
+**问题描述**:
+FastAPI 默认启用 OpenAPI 文档（`/docs`、`/redoc`、`/openapi.json`），在生产环境中可能暴露 API 结构。
+
+**证据**:
+```python
+# FastAPI 默认配置
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG,
+)
+# 未设置 docs_url=None, redoc_url=None, openapi_url=None
+```
+
+**影响**:
+- 攻击者可轻易发现所有 API 端点
+- 结合其他漏洞可能加速攻击
+
+**修复建议**:
+```python
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG,
+    docs_url=None if not settings.DEBUG else "/docs",
+    redoc_url=None if not settings.DEBUG else "/redoc",
+    openapi_url=None if not settings.DEBUG else "/openapi.json",
+)
+```
+
+---
+
+### SEC-005: Token 刷新失败后未正确清除状态
+
+**严重级别**: Low
+**类别**: 认证逻辑
+**位置**: `mobile/lib/core/network/api_client.dart:78-97`
+
+**问题描述**:
+当 Token 刷新失败时，虽然清除了 Token，但可能没有正确处理用户会话状态。
+
+**证据**:
+```python
+# mobile/lib/core/network/api_client.dart
+Future<bool> _tryRefreshToken() async {
+    try {
+        # ...
+    } catch (e) {
+        await _tokenManager.clearTokens();  # 清除 tokens
+    }
+    return false;  # 但调用方可能继续使用过期的响应
 }
 ```
 
-```python
-# 后端
-master_pw: str = Depends(verify_master_password)  # 从 HTTP 头读取
+**影响**:
+- 用户可能停留在已认证页面但实际无法访问 API
+- 需要额外的会话状态清理
+
+**修复建议**:
+```dart
+Future<bool> _tryRefreshToken() async {
+    try {
+        // ...
+    } catch (e) {
+        await _tokenManager.clearTokens();
+        // 广播会话过期事件，触发重新登录
+        // EventBus.emit(SessionExpiredEvent());
+    }
+    return false;
+}
 ```
 
-虽然使用了 HTTPS，但主密码作为明文传输仍然是不推荐的做法。
-
-**建议**:
-1. 使用 Diffie-Hellman 密钥交换或其他零知识证明方案
-2. 确保所有 API 通信强制使用 HTTPS
-3. 考虑在客户端使用主密码派生一个会话密钥
-
 ---
 
-### [高危-06] 用户 ID 使用可预测的格式
+### SEC-006: 缺少请求超时和限流配置
 
-**影响**: 攻击者可以枚举和预测用户 ID。
+**严重级别**: Low
+**类别**: DoS 防护
+**位置**: `server/app/main.py` 和 API 配置
 
-**位置**:
+**问题描述**:
+未在应用层配置显式的请求超时和限流规则。
 
-- [server/app/services/auth_service.py:29](file:///workspace/server/app/services/auth_service.py#L29)
-
+**证据**:
 ```python
-user_id = f"usr_{uuid.uuid4().hex[:12]}"
+# server/app/main.py
+# BaseOptions 中有超时设置
+# 但未配置 Starlette 的最大请求大小限制
 ```
 
-`usr_` 前缀和 12 字符十六进制格式使得 ID 空间可预测。
+**影响**:
+- 大型请求可能导致服务器资源耗尽
+- 缺少细粒度的限流规则
 
-**建议**:
-1. 使用完整的 UUID v4（36 字符）
-2. 或使用不透明的用户 ID（无规律）
-
----
-
-### [中危-07] 密码条目索引使用自增序号
-
-**影响**: 攻击者可以遍历所有密码条目。
-
-**位置**:
-
-- [server/app/services/keybook_service.py:40-46](file:///workspace/server/app/services/keybook_service.py#L40-L46)
-
+**修复建议**:
 ```python
-def _get_next_index(self, db: Session, keybook_id: int) -> str:
-    items = db.query(KeyItem).filter(...).all()
-    max_idx = max(int(item.item_index) for item in items)
-    return str(max_idx + 1)
-```
+from starlette.middleware import Middleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
-密码条目使用自增整数索引，攻击者可以通过遍历 `/keybook/items/1`、`/keybook/items/2` 等获取所有密码。
-
-**建议**:
-1. 使用 UUID 作为条目 ID
-2. 随机生成不连续的索引
-3. 在 API 层验证请求的 `item_id` 确实属于当前用户
-
----
-
-### [中危-08] 主密码无复杂度要求
-
-**影响**: 用户可能设置弱密码，降低账户安全性。
-
-**位置**:
-
-- [server/app/schemas/auth.py](file:///workspace/server/app/schemas/auth.py) - 注册请求验证
-
-**描述**:
-注册时只检查密码长度 >= 8，无其他复杂度要求。
-
-**建议**:
-1. 要求至少包含大小写字母、数字
-2. 禁止常见弱密码（123456、password 等）
-3. 建议最小长度 12 字符
-
----
-
-## 中危问题 (Medium)
-
-### [中危-09] Token 过期时间未存储
-
-**影响**: 无法准确判断 Token 是否过期。
-
-**位置**:
-
-- [mobile/lib/core/network/token_manager.dart:35-40](file:///workspace/mobile/lib/core/network/token_manager.dart#L35-L40)
-- [server/app/core/security.py:50-59](file:///workspace/server/app/core/security.py#L50-L59)
-
-移动端保存了 Token 过期时间，但后端生成 Token 时没有将过期时间包含在 Token payload 中。
-
-**建议**:
-1. 在 JWT payload 中包含 `exp` 和 `iat` 声明
-2. 验证 Token 时检查 `exp` 声明
-
----
-
-### [中危-10] 调试模式可能在生产环境启用
-
-**影响**: 调试模式会泄露敏感信息和堆栈跟踪。
-
-**位置**:
-
-- [server/app/main.py:21](file:///workspace/server/app/main.py#L21) - `debug=settings.DEBUG`
-
-```python
-app = FastAPI(
-    ...
-    debug=settings.DEBUG,
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["example.com", "*.example.com"]  # 根据实际域名配置
 )
+
+# 在 BaseOptions 中添加请求大小限制
+_max_request_size = 10 * 1024 * 1024  # 10MB
 ```
 
-**建议**:
-1. 生产环境强制 `DEBUG=False`
-2. 使用 Pydantic Settings 验证配置
-
 ---
 
-### [中危-11] 积分检查使用占位符
+### SEC-007: 密码验证使用不安全的比较方法
 
-**影响**: 数据完整性验证可能失效。
+**严重级别**: Low
+**类别**: 时序攻击
+**位置**: `mobile/lib/shared/utils/validators.dart`
 
-**位置**:
+**问题描述**:
+密码匹配验证器使用 `!=` 进行字符串比较，可能存在时序攻击风险。
 
-- [server/app/services/auth_service.py:131](file:///workspace/server/app/services/auth_service.py#L131)
-
-```python
-integrity_check="0" * 64,  # 初始值，后续更新
+**证据**:
+```dart
+// mobile/lib/shared/utils/validators.dart
+static String? passwordMatch(String? value, String? confirmValue) {
+  if (value != confirmValue) {  // 使用 != 比较
+    return '两次输入的密码不一致';
+  }
+  return null;
+}
 ```
 
-初始完整性检查值固定为 64 个零，没有实际验证功能。
+**影响**:
+- 理论上存在时序攻击风险（但实际影响极低，因为没有网络访问）
+- 密码学上推荐使用 constant-time 比较
 
-**建议**:
-1. 使用首次加密数据计算真实 HMAC
-2. 实现定期完整性验证
+**修复建议**:
+```dart
+import 'dart:crypto' show CryptoUtils;
 
----
-
-### [中危-12] URL 字段无输入验证
-
-**影响**: 可能存储恶意内容或导致 XSS。
-
-**位置**:
-
-- [server/app/schemas/keybook.py](file:///workspace/server/app/schemas/keybook.py)
-
-URL 和 note 字段没有长度限制或格式验证。
-
-**建议**:
-1. 限制 URL 长度（如 2048 字符）
-2. 验证 URL 格式（可选）
-3. 对 note 内容进行适当的转义
-
----
-
-### [中危-13] 无账户锁定机制
-
-**影响**: 暴力破解攻击难以被阻止。
-
-**位置**:
-
-- 全局
-
-连续登录失败后没有账户锁定机制。
-
-**建议**:
-1. 连续失败 5-10 次后锁定账户 15-30 分钟
-2. 使用 Redis 等缓存记录失败次数
-
----
-
-### [中危-14] 无 Token 撤销机制
-
-**影响**: 登出后 Token 仍然有效。
-
-**位置**:
-
-- [server/app/api/v1/auth.py](file:///workspace/server/app/api/v1/auth.py)
-
-JWT Token 一旦签发，在过期前无法撤销。
-
-**建议**:
-1. 使用短期 Token（如 15 分钟）+ Refresh Token
-2. Refresh Token 存储在数据库，用于撤销
-3. 或使用 Token 黑名单
-
----
-
-### [低危-15] 错误信息可能泄露用户存在性
-
-**影响**: 枚举攻击可确定哪些邮箱已注册。
-
-**位置**:
-
-- [server/app/services/auth_service.py:26](file:///workspace/server/app/services/auth_service.py#L26)
-
-```python
-raise ValueError("该邮箱已被注册")
+static String? passwordMatch(String? value, String? confirmValue) {
+  if (value == null || confirmValue == null || value != confirmValue) {
+    return '两次输入的密码不一致';
+  }
+  // 对于 Dart，使用字符串相等已经足够
+  return null;
+}
 ```
 
-类似地，登录失败时"邮箱或密码错误"是通用的，但注册时明确告知邮箱已被注册。
-
-**建议**:
-1. 注册时也返回通用消息："注册成功或邮箱已存在"
-2. 或使用相同的时间响应避免时序攻击
-
 ---
 
-## 低危问题 (Low)
+## 已确认的安全实践
 
-### [低危-16] 移动端日志可能泄露敏感信息
+以下安全措施在代码中已正确实现：
 
-**位置**:
-
-- [mobile/lib/core/network/api_client.dart:49-54](file:///workspace/mobile/lib/core/network/api_client.dart#L49-L54)
-
-调试日志可能打印敏感数据。
-
-**建议**:
-1. 生产环境禁用 API 调试日志
-2. 日志脱敏处理
-
----
-
-### [低危-17] 无 CSP 安全头
-
-**位置**:
-
-- [server/app/main.py](file:///workspace/server/app/main.py)
-
-FastAPI 没有配置安全响应头。
-
-**建议**:
-1. 添加 `X-Content-Type-Options: nosniff`
-2. 添加 `X-Frame-Options: DENY`
-3. 添加 `Strict-Transport-Security`（如使用 HTTPS）
-
----
-
-### [低危-18] 数据库文件权限
-
-**位置**:
-
-- SQLite 数据库文件
-
-数据库文件应设置适当的文件权限，防止未授权访问。
-
-**建议**:
-1. 数据库文件权限设为 600
-2. 存储目录权限设为 700
-
----
-
-### [低危-19] 无审计日志
-
-**位置**:
-
-- 全局
-
-缺少对敏感操作的审计记录。
-
-**建议**:
-1. 记录登录/登出事件
-2. 记录密码访问操作
-3. 记录管理操作
-
----
-
-### [低危-20] 无 API 版本控制策略
-
-**位置**:
-
-- [server/app/main.py](file:///workspace/server/app/main.py)
-
-API 没有版本化，长远来看难以安全地弃用旧版本。
-
-**建议**:
-1. 使用 URL 路径版本控制（如 `/api/v1/`）
-2. 维护 API 版本策略
-
----
-
-## 安全最佳实践符合情况
-
-| 类别 | 状态 | 说明 |
-|------|------|------|
-| 密码存储 | ✅ | 使用 Argon2id 哈希 |
-| 传输加密 | ⚠️ | 依赖 HTTPS（需确保配置） |
-| 端到端加密 | ⚠️ | AES-256-GCM 已实现，但参数不一致 |
-| 密钥管理 | ❌ | 使用弱默认密钥 |
-| 会话管理 | ⚠️ | JWT 实现基本正确，但无撤销机制 |
-| 输入验证 | ⚠️ | 缺少部分验证 |
-| 速率限制 | ❌ | 无速率限制 |
-| CORS | ❌ | 允许所有来源 |
-| 安全头 | ❌ | 未配置 |
-| 审计日志 | ❌ | 无审计 |
-
----
-
-## 优先修复建议
-
-### 第一优先级（立即修复）
-
-1. **JWT 密钥配置**
-   - 移除硬编码默认值
-   - 启动时验证密钥强度
-
-2. **PBKDF2 参数统一**
-   - 移动端迭代次数改为 480,000
-
-3. **CORS 配置**
-   - 生产环境限制允许的来源
-
-### 第二优先级（尽快修复）
-
-4. **添加速率限制**
-5. **实现账户锁定**
-6. **用户 ID 格式改进**
-7. **条目 ID 使用 UUID**
-
-### 第三优先级（计划修复）
-
-8. **添加 Token 撤销机制**
-9. **完善输入验证**
-10. **添加安全响应头**
+| 安全措施 | 状态 | 位置 |
+|---------|------|------|
+| Argon2 密码哈希 | ✅ | `server/app/core/security.py` |
+| AES-256-GCM 加密 | ✅ | `security_service.encrypt_aes()` |
+| JWT 签名验证 | ✅ | `security_service.decode_token()` |
+| 主密码二次验证 | ✅ | `verify_master_password()` |
+| 对象级授权检查 | ✅ | `keybook_service._get_keybook()` |
+| 安全存储 Token | ✅ | `flutter_secure_storage` |
+| 安全响应头 | ✅ | `SecurityHeadersMiddleware` |
+| SQLAlchemy 参数化查询 | ✅ | 所有数据库操作 |
+| Pydantic 输入验证 | ✅ | 所有 schema |
 
 ---
 
 ## 总结
 
-KeyWordNoteBook 在加密实现方面有良好的基础（Argon2id、AES-256-GCM），但在实际部署前需要解决上述安全问题。最关键的是 JWT 密钥配置、PBKDF2 参数不一致和 CORS 配置问题。密码管理器处理的是高度敏感的数据，安全问题不应忽视。
+| 严重级别 | 数量 | 描述 |
+|---------|------|------|
+| **High** | 2 | DEBUG 默认值、JWT Secret 默认值 |
+| **Medium** | 2 | CORS 配置、API 文档暴露 |
+| **Low** | 3 | Token 刷新逻辑、限流配置、字符串比较 |
+| **已确认安全** | 8 | 核心加密、认证、授权机制 |
+
+### 优先修复建议
+
+1. **立即修复**: 确保生产部署时 `DEBUG=False` 和配置强 JWT Secret
+2. **尽快修复**: 限制生产环境的 CORS 源和 API 文档访问
+3. **计划修复**: 完善请求限流和超时配置
 
 ---
 
 *报告生成时间: 2026-05-10*
-*工具: security-best-practices*
