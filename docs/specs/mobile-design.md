@@ -95,20 +95,24 @@
 mobile/
 ├── lib/
 │   ├── core/              # 核心模块
-│   │   ├── crypto/        # 加密服务
-│   │   ├── network/       # API 客户端
-│   │   └── constants/     # 常量配置
+│   │   ├── biometric/    # 生物识别服务
+│   │   ├── constants/    # 常量配置
+│   │   ├── crypto/       # 加密服务
+│   │   ├── network/      # API 客户端
+│   │   ├── storage/      # 本地存储 (SQLite)
+│   │   └── sync/         # 云端同步
 │   ├── data/              # 数据层
 │   │   ├── models/       # 数据模型
-│   │   ├── repositories/  # 仓库层
-│   │   └── providers/     # 状态管理
+│   │   ├── repositories/ # 仓库层
+│   │   └── providers/     # Riverpod 状态管理
 │   ├── features/          # 功能模块
-│   │   ├── auth/          # 认证
-│   │   ├── home/          # 主页
-│   │   ├── item/          # 密码条目
-│   │   └── settings/      # 设置
+│   │   ├── auth/         # 认证
+│   │   ├── home/         # 主页
+│   │   ├── item/         # 密码条目
+│   │   └── settings/     # 设置
 │   └── shared/            # 共享组件
-└── test/                  # 测试
+├── test/                  # 单元测试
+└── pubspec.yaml           # 依赖配置
 ```
 
 ---
@@ -135,13 +139,71 @@ mobile/
 
 ## 六、后续计划
 
-| 阶段 | 内容 | 优先级 |
-|-----|------|-------|
+| 阶段 | 内容 | 状态 |
+|-----|------|------|
 | Phase 1 | Flutter 项目结构 + 加密服务 | ✅ 已完成 |
 | Phase 2 | API 客户端 + UI 界面 | ✅ 已完成 |
-| Phase 3 | 本地存储（SQLite） | 待开发 |
-| Phase 4 | 生物识别集成 | 待开发 |
-| Phase 5 | 后端 API 服务 | 待开发 |
+| Phase 3 | 本地存储（SQLite） | ✅ 已完成 |
+| Phase 4 | 生物识别集成 | ✅ 已完成 |
+| Phase 5 | 云端同步模块 | ✅ 已完成 |
+| Phase 6 | 后端 API 服务 | ✅ 已完成 |
+| Phase 7 | 服务与UI集成 | 🔄 进行中 |
+
+---
+
+## 七、已实现模块清单
+
+### 移动端 (mobile/)
+
+| 模块 | 文件 | 功能 | 状态 |
+|-----|------|------|------|
+| **核心模块** | | | |
+| 加密服务 | `lib/core/crypto/` | AES-256加密、密钥派生、HMAC、密码强度 | ✅ |
+| API客户端 | `lib/core/network/` | Dio封装、Token管理、错误处理 | ✅ |
+| 本地存储 | `lib/core/storage/` | SQLite CRUD、同步队列 | ✅ |
+| 生物识别 | `lib/core/biometric/` | 指纹/面容认证 | ✅ |
+| 云端同步 | `lib/core/sync/` | 状态管理、冲突解决 | ✅ |
+| **数据层** | | | |
+| 模型 | `lib/data/models/` | Auth、KeyItem、SyncModels | ✅ |
+| 仓库 | `lib/data/repositories/` | AuthRepository、KeybookRepository | ✅ |
+| 状态管理 | `lib/data/providers/` | Riverpod Providers | ✅ |
+| **功能模块** | | | |
+| 认证 | `lib/features/auth/` | 登录、注册界面 | ✅ |
+| 主页 | `lib/features/home/` | 主页列表 | ✅ |
+| 密码条目 | `lib/features/item/` | 详情、编辑 | ✅ |
+| 设置 | `lib/features/settings/` | 设置界面 | ✅ |
+| **测试** | `test/core/` | LocalStorage、Biometric、Sync测试 | ✅ |
+
+### 后端服务 (server/)
+
+| 模块 | 文件 | 功能 | 状态 |
+|-----|------|------|------|
+| API路由 | `app/api/v1/` | Auth、Keybook、Sync接口 | ✅ |
+| 服务层 | `app/services/` | 认证、密码本、同步逻辑 | ✅ |
+| 数据模型 | `app/models/` | User、KeyBook、SyncOperation | ✅ |
+| 数据库 | `app/core/database.py` | SQLite连接 | ✅ |
+| 安全 | `app/core/security.py` | JWT、密码哈希 | ✅ |
+
+---
+
+## 八、待集成功能
+
+### 8.1 UI与服务集成
+
+| 功能 | 描述 | 优先级 |
+|-----|------|------|
+| 加密服务集成 | 将CryptoService与密码编辑界面连接 | 🔴 高 |
+| 生物识别开关 | Settings页面生物识别开关与服务连接 | 🔴 高 |
+| 同步状态UI | 主页显示同步状态、自动同步开关 | 🟡 中 |
+| 冲突解决UI | 冲突发生时弹出选择界面 | 🟡 中 |
+
+### 8.2 完善功能
+
+| 功能 | 描述 | 优先级 |
+|-----|------|------|
+| Wi-Fi同步选项 | 仅在Wi-Fi下自动同步 | 🟢 低 |
+| 离线模式 | 无网络时正常工作 | 🟢 低 |
+| 导出/导入 | 数据备份与恢复 | 🟢 低 |
 
 ---
 
@@ -150,3 +212,4 @@ mobile/
 | 版本 | 日期 | 修改内容 |
 |-----|------|---------|
 | 1.0.0 | 2026-05-10 | 初始版本 |
+| 1.1.0 | 2026-05-10 | 更新Phase 3-6状态，添加已实现模块清单和待集成功能 |
