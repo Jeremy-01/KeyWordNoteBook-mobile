@@ -1,21 +1,26 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+import os
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "KeyWordNoteBook API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
 
-    # 数据库
     DATABASE_URL: str = "sqlite:///./keybook.db"
 
-    # JWT
-    JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+    JWT_SECRET_KEY: str = ""
+
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Argon2 参数（与桌面端 Core.py 保持一致）
+    CORS_ALLOWED_ORIGINS: str = ""
+
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_PER_MINUTE: int = 60
+
     ARGON2_MEMORY_COST: int = 131072
     ARGON2_TIME_COST: int = 6
     ARGON2_PARALLELISM: int = 6
@@ -23,7 +28,18 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra = "allow"
+
+    def validate(self):
+        if not self.DEBUG and not self.JWT_SECRET_KEY:
+            raise ValueError("JWT_SECRET_KEY must be set in production (non-debug mode)")
+        if self.JWT_SECRET_KEY and len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError("JWT_SECRET_KEY must be at least 32 characters long")
+        return True
+
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    settings.validate()
+    return settings

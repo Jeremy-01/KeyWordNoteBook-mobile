@@ -1,20 +1,25 @@
 """
 认证路由 - 注册、登录、Token 刷新
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.schemas.common import ApiResponse
 from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserInfo
 from app.services.auth_service import auth_service
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+settings = get_settings()
 
 
 @router.post("/register", response_model=ApiResponse, status_code=201)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, request: Request, db: Session = Depends(get_db)):
     """用户注册"""
+    if settings.RATE_LIMIT_ENABLED:
+        from app.main import limiter
+        limiter.check(request, f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
     try:
         result = auth_service.register(db, req)
         return ApiResponse(code=0, message="注册成功", data=result)
@@ -23,8 +28,11 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=ApiResponse)
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
+    if settings.RATE_LIMIT_ENABLED:
+        from app.main import limiter
+        limiter.check(request, f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
     try:
         result = auth_service.login(db, req)
         return ApiResponse(code=0, message="登录成功", data=result)
