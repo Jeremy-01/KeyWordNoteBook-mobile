@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers/providers.dart';
 import '../../data/providers/auth_provider.dart';
+import 'profile_screen.dart';
+import 'change_password_screen.dart';
+import 'terms_screen.dart';
+import 'privacy_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -27,12 +31,20 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.person,
                 title: '个人信息',
                 subtitle: authState.userInfo?.email ?? '已登录',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  );
+                },
               ),
               _SettingsItem(
                 icon: Icons.lock,
                 title: '修改密码',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                  );
+                },
               ),
               _SettingsItem(
                 icon: Icons.fingerprint,
@@ -106,12 +118,20 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsItem(
                 icon: Icons.description,
                 title: '用户协议',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TermsScreen()),
+                  );
+                },
               ),
               _SettingsItem(
                 icon: Icons.privacy_tip,
                 title: '隐私政策',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PrivacyScreen()),
+                  );
+                },
               ),
             ],
           ),

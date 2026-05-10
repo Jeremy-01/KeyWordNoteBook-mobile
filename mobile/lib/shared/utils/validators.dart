@@ -24,8 +24,8 @@ class Validators {
     if (value == null || value.isEmpty) {
       return '密码不能为空';
     }
-    if (value.length < 6) {
-      return '密码至少需要 6 个字符';
+    if (value.length < 12) {
+      return '密码至少需要 12 个字符';
     }
     return null;
   }
