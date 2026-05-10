@@ -31,6 +31,9 @@ class Validators {
   }
 
   static String? passwordMatch(String? value, String? confirmValue) {
+    if (value == null || confirmValue == null) {
+      return '两次输入的密码不一致';
+    }
     if (value != confirmValue) {
       return '两次输入的密码不一致';
     }
