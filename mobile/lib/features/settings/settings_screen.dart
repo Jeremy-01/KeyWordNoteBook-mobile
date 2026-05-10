@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/providers/providers.dart';
 import '../../data/providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -10,6 +11,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final settings = ref.watch(settingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,8 +39,10 @@ class SettingsScreen extends ConsumerWidget {
                 title: '生物识别',
                 subtitle: '使用指纹或面容快速解锁',
                 trailing: Switch(
-                  value: false,
-                  onChanged: (value) {},
+                  value: settings.biometricEnabled,
+                  onChanged: (value) {
+                    ref.read(settingsProvider.notifier).toggleBiometric();
+                  },
                 ),
               ),
             ],
@@ -50,16 +54,20 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.sync,
                 title: '自动同步',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: settings.autoSyncEnabled,
+                  onChanged: (value) {
+                    ref.read(settingsProvider.notifier).toggleAutoSync();
+                  },
                 ),
               ),
               _SettingsItem(
                 icon: Icons.wifi,
                 title: '仅在 Wi-Fi 下同步',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: settings.wifiOnlySync,
+                  onChanged: (value) {
+                    ref.read(settingsProvider.notifier).toggleWifiOnlySync();
+                  },
                 ),
               ),
             ],
@@ -70,15 +78,19 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsItem(
                 icon: Icons.timer,
                 title: '自动锁定',
-                subtitle: '1 分钟无操作后',
-                onTap: () {},
+                subtitle: '${settings.autoLockMinutes} 分钟无操作后',
+                onTap: () {
+                  _showAutoLockPicker(context, ref);
+                },
               ),
               _SettingsItem(
                 icon: Icons.visibility_off,
                 title: '隐藏密码',
                 trailing: Switch(
-                  value: true,
-                  onChanged: (value) {},
+                  value: settings.hidePasswords,
+                  onChanged: (value) {
+                    ref.read(settingsProvider.notifier).toggleHidePasswords();
+                  },
                 ),
               ),
             ],
@@ -143,6 +155,31 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+
+  void _showAutoLockPicker(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('自动锁定时间'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [1, 5, 10, 15].map((minutes) {
+            return RadioListTile<int>(
+              title: Text('$minutes 分钟'),
+              value: minutes,
+              groupValue: ref.read(settingsProvider).autoLockMinutes,
+              onChanged: (value) {
+                if (value != null) {
+                  ref.read(settingsProvider.notifier).setAutoLockDuration(value);
+                  Navigator.pop(context);
+                }
+              },
+            );
+          }).toList(),
+        ),
       ),
     );
   }
