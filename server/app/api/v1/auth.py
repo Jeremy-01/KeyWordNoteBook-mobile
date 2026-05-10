@@ -17,9 +17,6 @@ settings = get_settings()
 @router.post("/register", response_model=ApiResponse, status_code=201)
 def register(req: RegisterRequest, request: Request, db: Session = Depends(get_db)):
     """用户注册"""
-    if settings.RATE_LIMIT_ENABLED:
-        from app.main import limiter
-        limiter.check(request, f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
     try:
         result = auth_service.register(db, req)
         return ApiResponse(code=0, message="注册成功", data=result)
@@ -30,9 +27,6 @@ def register(req: RegisterRequest, request: Request, db: Session = Depends(get_d
 @router.post("/login", response_model=ApiResponse)
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
-    if settings.RATE_LIMIT_ENABLED:
-        from app.main import limiter
-        limiter.check(request, f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
     try:
         result = auth_service.login(db, req)
         return ApiResponse(code=0, message="登录成功", data=result)
