@@ -1,12 +1,13 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-import os
+from typing import Optional
+import secrets
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "KeyWordNoteBook API"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     DATABASE_URL: str = "sqlite:///./keybook.db"
 
@@ -26,14 +27,17 @@ class Settings(BaseSettings):
     ARGON2_PARALLELISM: int = 6
     ARGON2_HASH_LEN: int = 64
 
+    TRUSTED_HOSTS: str = ""
+
     class Config:
         env_file = ".env"
         extra = "allow"
 
     def validate(self):
-        if not self.DEBUG and not self.JWT_SECRET_KEY:
-            raise ValueError("JWT_SECRET_KEY must be set in production (non-debug mode)")
-        if self.JWT_SECRET_KEY and len(self.JWT_SECRET_KEY) < 32:
+        if self.JWT_SECRET_KEY == "":
+            if not self.DEBUG:
+                raise ValueError("JWT_SECRET_KEY must be set in production (non-debug mode)")
+        elif len(self.JWT_SECRET_KEY) < 32:
             raise ValueError("JWT_SECRET_KEY must be at least 32 characters long")
         return True
 
