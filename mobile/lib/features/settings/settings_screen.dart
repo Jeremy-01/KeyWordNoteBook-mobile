@@ -1,0 +1,207 @@
+/// 设置页面
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../data/providers/auth_provider.dart';
+
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('设置'),
+      ),
+      body: ListView(
+        children: [
+          const SizedBox(height: 16),
+          _SettingsSection(
+            title: '账户',
+            children: [
+              _SettingsItem(
+                icon: Icons.person,
+                title: '个人信息',
+                subtitle: authState.userInfo?.email ?? '已登录',
+                onTap: () {},
+              ),
+              _SettingsItem(
+                icon: Icons.lock,
+                title: '修改密码',
+                onTap: () {},
+              ),
+              _SettingsItem(
+                icon: Icons.fingerprint,
+                title: '生物识别',
+                subtitle: '使用指纹或面容快速解锁',
+                trailing: Switch(
+                  value: false,
+                  onChanged: (value) {},
+                ),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: '同步',
+            children: [
+              _SettingsItem(
+                icon: Icons.sync,
+                title: '自动同步',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (value) {},
+                ),
+              ),
+              _SettingsItem(
+                icon: Icons.wifi,
+                title: '仅在 Wi-Fi 下同步',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (value) {},
+                ),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: '安全',
+            children: [
+              _SettingsItem(
+                icon: Icons.timer,
+                title: '自动锁定',
+                subtitle: '1 分钟无操作后',
+                onTap: () {},
+              ),
+              _SettingsItem(
+                icon: Icons.visibility_off,
+                title: '隐藏密码',
+                trailing: Switch(
+                  value: true,
+                  onChanged: (value) {},
+                ),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: '关于',
+            children: [
+              _SettingsItem(
+                icon: Icons.info,
+                title: '版本',
+                subtitle: '1.0.0',
+              ),
+              _SettingsItem(
+                icon: Icons.description,
+                title: '用户协议',
+                onTap: () {},
+              ),
+              _SettingsItem(
+                icon: Icons.privacy_tip,
+                title: '隐私政策',
+                onTap: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('退出登录'),
+                    content: const Text('确定要退出登录吗？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text('退出'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirmed == true) {
+                  ref.read(authProvider.notifier).logout();
+                }
+              },
+              icon: const Icon(Icons.logout, color: Colors.red),
+              label: const Text('退出登录', style: TextStyle(color: Colors.red)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.red),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ...children,
+        const Divider(),
+      ],
+    );
+  }
+}
+
+class _SettingsItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  const _SettingsItem({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle!) : null,
+      trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right) : null),
+      onTap: onTap,
+    );
+  }
+}
