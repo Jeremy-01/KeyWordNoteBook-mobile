@@ -53,9 +53,11 @@ flutter build ios --release
 ```
 lib/
 ├── core/           # 核心模块
-│   ├── crypto/     # 加密服务
-│   ├── network/    # API 客户端
-│   └── constants/  # 常量配置
+│   ├── biometric/ # 生物识别服务
+│   ├── crypto/    # 加密服务
+│   ├── network/   # API 客户端
+│   ├── storage/   # 本地存储 (SQLite)
+│   └── constants/ # 常量配置
 ├── data/           # 数据层
 │   ├── models/     # 数据模型
 │   ├── repositories/ # 仓库层
@@ -67,6 +69,24 @@ lib/
 │   └── settings/   # 设置
 └── shared/         # 共享组件
 ```
+
+## 开发指南
+
+### TDD 测试驱动开发
+
+```bash
+# 运行所有测试
+flutter test
+
+# 运行特定测试
+flutter test test/core/local_storage_test.dart
+flutter test test/core/biometric_test.dart
+```
+
+### 模块说明
+
+- **LocalStorage**: SQLite 数据库封装，支持密码条目 CRUD、同步状态管理、待同步队列
+- **BiometricService**: 生物识别认证，支持指纹/面容识别、自定义认证选项
 
 ## 许可证
 
