@@ -2,7 +2,7 @@
 密码本服务 - 处理密码条目的增删改查
 """
 import base64
-import json
+import uuid
 from sqlalchemy.orm import Session
 
 from app.core.security import security_service
@@ -27,7 +27,6 @@ class KeyBookService:
 
         aes_key = security_service.derive_aes_key(master_password, encryption_salt)
 
-        # 解密 HMAC 密钥
         hmac_key_b64 = security_service.decrypt_aes(kb.hmac_key_encrypted, aes_key)
         hmac_key = base64.b64decode(hmac_key_b64)
 
@@ -55,6 +54,7 @@ class KeyBookService:
         return {
             "items": [
                 {
+                    "item_id": item.item_id,
                     "index": item.item_index,
                     "url": item.url,
                     "username": item.username,
@@ -69,7 +69,7 @@ class KeyBookService:
             "page_size": page_size,
         }
 
-    def get_item_detail(self, db: Session, user_id: str, item_index: str, master_password: str) -> dict:
+    def get_item_detail(self, db: Session, user_id: str, item_id: str, master_password: str) -> dict:
         """获取单个条目详情（含解密密码）"""
         kb = self._get_keybook(db, user_id)
         if not self._verify_master_password(master_password, kb):
@@ -77,7 +77,7 @@ class KeyBookService:
 
         item = db.query(KeyItem).filter(
             KeyItem.keybook_id == kb.id,
-            KeyItem.item_index == item_index,
+            KeyItem.item_id == item_id,
         ).first()
         if not item:
             raise ValueError("条目不存在")
@@ -86,6 +86,7 @@ class KeyBookService:
         decrypted_password = security_service.decrypt_aes(item.password_encrypted, aes_key)
 
         return {
+            "item_id": item.item_id,
             "index": item.item_index,
             "url": item.url,
             "username": item.username,
@@ -102,11 +103,13 @@ class KeyBookService:
             raise ValueError("主密码验证失败")
 
         aes_key, _ = self._derive_keys(master_password, kb)
+        item_id = str(uuid.uuid4())
         item_index = self._get_next_index(db, kb.id)
         password_level = security_service.get_password_level(data.password)
         encrypted_password = security_service.encrypt_aes(data.password, aes_key)
 
         item = KeyItem(
+            item_id=item_id,
             keybook_id=kb.id,
             item_index=item_index,
             url=data.url,
@@ -119,13 +122,12 @@ class KeyBookService:
         )
         db.add(item)
 
-        # 更新密码本版本
         kb.version += 1
         db.commit()
 
-        return item_index
+        return item_id
 
-    def update_item(self, db: Session, user_id: str, item_index: str, data: KeyItemUpdate, master_password: str) -> bool:
+    def update_item(self, db: Session, user_id: str, item_id: str, data: KeyItemUpdate, master_password: str) -> bool:
         """更新密码条目"""
         kb = self._get_keybook(db, user_id)
         if not self._verify_master_password(master_password, kb):
@@ -133,7 +135,7 @@ class KeyBookService:
 
         item = db.query(KeyItem).filter(
             KeyItem.keybook_id == kb.id,
-            KeyItem.item_index == item_index,
+            KeyItem.item_id == item_id,
         ).first()
         if not item:
             raise ValueError("条目不存在")
@@ -156,16 +158,15 @@ class KeyBookService:
         db.commit()
         return True
 
-    def delete_item(self, db: Session, user_id: str, item_index: str, master_password: str) -> bool:
+    def delete_item(self, db: Session, user_id: str, item_id: str, master_password: str) -> bool:
         """删除密码条目"""
         kb = self._get_keybook(db, user_id)
         if not self._verify_master_password(master_password, kb):
             raise ValueError("主密码验证失败")
 
         item = db.query(KeyItem).filter(
-            KeyBookMeta.user_id == user_id,
             KeyItem.keybook_id == kb.id,
-            KeyItem.item_index == item_index,
+            KeyItem.item_id == item_id,
         ).first()
         if not item:
             raise ValueError("条目不存在")

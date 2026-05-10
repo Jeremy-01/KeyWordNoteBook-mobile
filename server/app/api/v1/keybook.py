@@ -52,8 +52,8 @@ def add_item(
 ):
     """添加密码条目（需二次验证）"""
     try:
-        item_index = keybook_service.add_item(db, user_id, data, master_pw)
-        return ApiResponse(code=0, message="添加成功", data={"index": item_index})
+        item_id = keybook_service.add_item(db, user_id, data, master_pw)
+        return ApiResponse(code=0, message="添加成功", data={"item_id": item_id})
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

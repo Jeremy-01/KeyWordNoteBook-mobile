@@ -1,25 +1,38 @@
 """
 密码本相关数据模型
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+import re
 
 
 class KeyItemCreate(BaseModel):
     """创建密码条目"""
-    url: str = Field(..., min_length=1)
-    username: str = Field(..., min_length=1)
-    password: str = Field(..., min_length=1)
-    link_url: str = ""
-    note: str = ""
+    url: str = Field(..., min_length=1, max_length=2048)
+    username: str = Field(..., min_length=1, max_length=256)
+    password: str = Field(..., min_length=1, max_length=1024)
+    link_url: str = Field(default="", max_length=2048)
+    note: str = Field(default="", max_length=10000)
+
+    @validator("url", "link_url")
+    def validate_url_format(cls, v):
+        if v and not re.match(r'^https?://', v):
+            v = f"https://{v}"
+        return v
 
 
 class KeyItemUpdate(BaseModel):
     """更新密码条目"""
-    url: str | None = None
-    username: str | None = None
-    password: str | None = None
-    link_url: str | None = None
-    note: str | None = None
+    url: str | None = Field(default=None, max_length=2048)
+    username: str | None = Field(default=None, max_length=256)
+    password: str | None = Field(default=None, max_length=1024)
+    link_url: str | None = Field(default=None, max_length=2048)
+    note: str | None = Field(default=None, max_length=10000)
+
+    @validator("url", "link_url")
+    def validate_url_format(cls, v):
+        if v and not re.match(r'^https?://', v):
+            v = f"https://{v}"
+        return v
 
 
 class KeyItemResponse(BaseModel):

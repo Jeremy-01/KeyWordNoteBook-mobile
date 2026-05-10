@@ -20,13 +20,13 @@ class AuthService:
         if req.password != req.password_confirm:
             raise ValueError("两次输入的密码不一致")
 
-        # 检查邮箱是否已注册
+        # 检查邮箱是否已注册 - 使用通用错误信息避免用户枚举
         existing = db.query(User).filter(User.email == req.email).first()
         if existing:
-            raise ValueError("该邮箱已被注册")
+            raise ValueError("注册失败，请稍后重试")
 
-        # 创建用户
-        user_id = f"usr_{uuid.uuid4().hex[:12]}"
+        # 创建用户 - 使用完整 UUID v4 确保不可预测
+        user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
             email=req.email,
