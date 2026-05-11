@@ -1,0 +1,71 @@
+name: Flutter Web 预览部署
+
+on:
+  push:
+    branches:
+      - main
+      - mobile
+      - 'trae/**'
+  pull_request:
+    branches:
+      - main
+      - mobile
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: 安装依赖
+        run: |
+          cd mobile
+          flutter pub get
+
+      - name: 配置 Git 用户
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: 添加 Flutter Web 平台支持
+        run: |
+          cd mobile
+          flutter config --enable-web
+
+      - name: 构建 Flutter Web
+        run: |
+          cd mobile
+          flutter build web --release
+
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/mobile'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
