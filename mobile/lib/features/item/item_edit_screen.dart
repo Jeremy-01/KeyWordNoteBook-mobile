@@ -7,6 +7,7 @@ import '../../data/models/key_item_model.dart';
 import '../../core/crypto/crypto_service.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../shared/utils/validators.dart';
+import '../generator/password_generator_screen.dart';
 
 class ItemEditScreen extends ConsumerStatefulWidget {
   final KeyItemModel? item;
@@ -145,13 +146,31 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
                 hint: '请输入密码',
                 obscureText: _obscurePassword,
                 prefixIcon: const Icon(Icons.lock),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: () {
-                    setState(() => _obscurePassword = !_obscurePassword);
-                  },
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.auto_awesome),
+                      tooltip: '生成密码',
+                      onPressed: () async {
+                        await showPasswordGeneratorDialog(
+                          context,
+                          onPasswordGenerated: (password) {
+                            _passwordController.text = password;
+                            setState(() {});
+                          },
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 validator: (v) => Validators.required(v, '密码'),
                 onChanged: (_) => setState(() {}),
