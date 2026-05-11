@@ -17,6 +17,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -29,7 +30,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -47,6 +57,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ref.read(keyBookProvider.notifier).loadItems(refresh: true);
             },
           ),
+          PopupMenuButton<SortOption>(
+            icon: const Icon(Icons.sort),
+            onSelected: (option) {
+              ref.read(keyBookProvider.notifier).setSortOption(option);
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: SortOption.name,
+                child: Row(
+                  children: [
+                    if (keyBookState.sortOption == SortOption.name)
+                      const Icon(Icons.check, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('按名称排序'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SortOption.createdAt,
+                child: Row(
+                  children: [
+                    if (keyBookState.sortOption == SortOption.createdAt)
+                      const Icon(Icons.check, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('按创建时间排序'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SortOption.updatedAt,
+                child: Row(
+                  children: [
+                    if (keyBookState.sortOption == SortOption.updatedAt)
+                      const Icon(Icons.check, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('按更新时间排序'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -61,22 +112,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '搜索密码...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索密码...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    ref.read(searchQueryProvider.notifier).state = value;
+                  },
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        label: const Text('全部'),
+                        selected: keyBookState.filterOption == FilterOption.all,
+                        onSelected: (_) {
+                          ref.read(keyBookProvider.notifier)
+                              .setFilterOption(FilterOption.all);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        avatar: Icon(
+                          keyBookState.filterOption == FilterOption.favorites
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          size: 18,
+                        ),
+                        label: const Text('收藏'),
+                        selected: keyBookState.filterOption == FilterOption.favorites,
+                        onSelected: (_) {
+                          ref.read(keyBookProvider.notifier)
+                              .setFilterOption(FilterOption.favorites);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              onChanged: (value) {
-                ref.read(searchQueryProvider.notifier).state = value;
-              },
+              ],
             ),
           ),
           Expanded(
@@ -148,6 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         await ref.read(keyBookProvider.notifier).loadItems(refresh: true);
       },
       child: ListView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: items.length,
         itemBuilder: (context, index) {
@@ -169,6 +256,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             },
             onDelete: () => _showDeleteDialog(item),
+            onToggleFavorite: () {
+              ref.read(keyBookProvider.notifier).toggleFavorite(item.index);
+            },
           );
         },
       ),
@@ -206,12 +296,14 @@ class _KeyItemCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onToggleFavorite;
 
   const _KeyItemCard({
     required this.item,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleFavorite,
   });
 
   @override
@@ -248,14 +340,26 @@ class _KeyItemCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _getSiteName(item.url),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _getSiteName(item.url),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (item.isFavorite)
+                          const Icon(
+                            Icons.favorite,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -275,8 +379,23 @@ class _KeyItemCard extends StatelessWidget {
                 onSelected: (value) {
                   if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
+                  if (value == 'favorite') onToggleFavorite();
                 },
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'favorite',
+                    child: Row(
+                      children: [
+                        Icon(
+                          item.isFavorite ? Icons.favorite : Icons.favorite_border,
+                          size: 20,
+                          color: item.isFavorite ? Colors.red : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(item.isFavorite ? '取消收藏' : '收藏'),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'edit',
                     child: Row(

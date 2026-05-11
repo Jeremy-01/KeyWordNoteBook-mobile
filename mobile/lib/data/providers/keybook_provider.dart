@@ -6,6 +6,17 @@ import '../models/sync_models.dart';
 import '../repositories/keybook_repository.dart';
 import 'providers.dart';
 
+enum SortOption {
+  name,
+  createdAt,
+  updatedAt,
+}
+
+enum FilterOption {
+  all,
+  favorites,
+}
+
 /// 密码本状态
 class KeyBookState {
   final List<KeyItemModel> items;
@@ -16,6 +27,8 @@ class KeyBookState {
   final bool hasMore;
   final int syncVersion;
   final KeyItemModel? selectedItem;
+  final SortOption sortOption;
+  final FilterOption filterOption;
 
   KeyBookState({
     this.items = const [],
@@ -26,6 +39,8 @@ class KeyBookState {
     this.hasMore = true,
     this.syncVersion = 0,
     this.selectedItem,
+    this.sortOption = SortOption.name,
+    this.filterOption = FilterOption.all,
   });
 
   KeyBookState copyWith({
@@ -37,6 +52,8 @@ class KeyBookState {
     bool? hasMore,
     int? syncVersion,
     KeyItemModel? selectedItem,
+    SortOption? sortOption,
+    FilterOption? filterOption,
   }) {
     return KeyBookState(
       items: items ?? this.items,
@@ -47,6 +64,8 @@ class KeyBookState {
       hasMore: hasMore ?? this.hasMore,
       syncVersion: syncVersion ?? this.syncVersion,
       selectedItem: selectedItem ?? this.selectedItem,
+      sortOption: sortOption ?? this.sortOption,
+      filterOption: filterOption ?? this.filterOption,
     );
   }
 }
@@ -168,6 +187,37 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
     state = state.copyWith(selectedItem: item);
   }
 
+  Future<bool> toggleFavorite(String itemId) async {
+    try {
+      final itemIndex = state.items.indexWhere((i) => i.index == itemId);
+      if (itemIndex == -1) return false;
+
+      final item = state.items[itemIndex];
+      final updatedItem = item.copyWith(isFavorite: !item.isFavorite);
+      await _repository.updateItem(itemId, updatedItem);
+
+      final updatedItems = [...state.items];
+      updatedItems[itemIndex] = updatedItem;
+
+      state = state.copyWith(
+        items: updatedItems,
+        syncVersion: state.syncVersion + 1,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  void setSortOption(SortOption option) {
+    state = state.copyWith(sortOption: option);
+  }
+
+  void setFilterOption(FilterOption option) {
+    state = state.copyWith(filterOption: option);
+  }
+
   void clearError() {
     state = state.copyWith(error: null);
   }
@@ -193,12 +243,38 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final filteredItemsProvider = Provider<List<KeyItemModel>>((ref) {
   final items = ref.watch(keyBookProvider).items;
   final query = ref.watch(searchQueryProvider).toLowerCase();
+  final sortOption = ref.watch(keyBookProvider.select((s) => s.sortOption));
+  final filterOption = ref.watch(keyBookProvider.select((s) => s.filterOption));
 
-  if (query.isEmpty) return items;
-
-  return items.where((item) {
+  var filtered = items.where((item) {
+    if (filterOption == FilterOption.favorites && !item.isFavorite) {
+      return false;
+    }
+    if (query.isEmpty) return true;
     return item.url.toLowerCase().contains(query) ||
         item.username.toLowerCase().contains(query) ||
         item.note.toLowerCase().contains(query);
   }).toList();
+
+  switch (sortOption) {
+    case SortOption.name:
+      filtered.sort((a, b) => a.url.compareTo(b.url));
+      break;
+    case SortOption.createdAt:
+      filtered.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime(1970);
+        final bTime = b.createdAt ?? DateTime(1970);
+        return bTime.compareTo(aTime);
+      });
+      break;
+    case SortOption.updatedAt:
+      filtered.sort((a, b) {
+        final aTime = a.updatedAt ?? DateTime(1970);
+        final bTime = b.updatedAt ?? DateTime(1970);
+        return bTime.compareTo(aTime);
+      });
+      break;
+  }
+
+  return filtered;
 });
