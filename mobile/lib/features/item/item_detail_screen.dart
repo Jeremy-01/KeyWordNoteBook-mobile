@@ -1,10 +1,10 @@
 /// 密码详情页面
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers/keybook_provider.dart';
 import '../../data/models/key_item_model.dart';
+import '../../core/utils/clipboard_utils.dart';
 import 'item_edit_screen.dart';
 
 class ItemDetailScreen extends ConsumerStatefulWidget {
@@ -54,13 +54,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   }
 
   void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label 已复制到剪贴板'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ClipboardUtils.copyWithAutoClear(context, text, label: label);
   }
 
   @override

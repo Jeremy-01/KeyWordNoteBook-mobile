@@ -7,6 +7,8 @@ class KeyItemModel {
   final int passwordLevel;
   final String linkUrl;
   final String note;
+  final bool isFavorite;
+  final String? groupId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -18,6 +20,8 @@ class KeyItemModel {
     required this.passwordLevel,
     required this.linkUrl,
     required this.note,
+    this.isFavorite = false,
+    this.groupId,
     this.createdAt,
     this.updatedAt,
   });
@@ -31,6 +35,8 @@ class KeyItemModel {
       passwordLevel: json['password_level'] ?? json['PasswordLevel'] ?? 0,
       linkUrl: json['link_url'] ?? json['LinkURL'] ?? '',
       note: json['note'] ?? json['Note'] ?? '',
+      isFavorite: json['is_favorite'] ?? json['isFavorite'] ?? false,
+      groupId: json['group_id'] ?? json['groupId'],
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'])
           : null,
@@ -48,6 +54,8 @@ class KeyItemModel {
     'password_level': passwordLevel,
     'link_url': linkUrl,
     'note': note,
+    'is_favorite': isFavorite,
+    if (groupId != null) 'group_id': groupId,
   };
 
   KeyItemModel copyWith({
@@ -58,6 +66,8 @@ class KeyItemModel {
     int? passwordLevel,
     String? linkUrl,
     String? note,
+    bool? isFavorite,
+    String? groupId,
   }) {
     return KeyItemModel(
       index: index ?? this.index,
@@ -67,6 +77,8 @@ class KeyItemModel {
       passwordLevel: passwordLevel ?? this.passwordLevel,
       linkUrl: linkUrl ?? this.linkUrl,
       note: note ?? this.note,
+      isFavorite: isFavorite ?? this.isFavorite,
+      groupId: groupId ?? this.groupId,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
