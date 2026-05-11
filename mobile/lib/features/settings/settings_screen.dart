@@ -8,6 +8,8 @@ import 'profile_screen.dart';
 import 'change_password_screen.dart';
 import 'terms_screen.dart';
 import 'privacy_screen.dart';
+import '../import_export/export_screen.dart';
+import '../import_export/import_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -104,6 +106,31 @@ class SettingsScreen extends ConsumerWidget {
                     ref.read(settingsProvider.notifier).toggleHidePasswords();
                   },
                 ),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: '数据管理',
+            children: [
+              _SettingsItem(
+                icon: Icons.file_upload,
+                title: '导出数据',
+                subtitle: '导出密码为 CSV 或加密备份',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ExportScreen()),
+                  );
+                },
+              ),
+              _SettingsItem(
+                icon: Icons.file_download,
+                title: '导入数据',
+                subtitle: '从 CSV 或备份文件导入',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ImportScreen()),
+                  );
+                },
               ),
             ],
           ),
