@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../storage/local_storage.dart';
-import '../biometric/biometric_service.dart';
-import '../sync/sync_service.dart';
+
+import '../../core/biometric/biometric_service.dart';
+import '../../core/storage/local_storage.dart';
+import '../../core/sync/sync_service.dart';
 
 class SettingsState {
   final bool biometricEnabled;

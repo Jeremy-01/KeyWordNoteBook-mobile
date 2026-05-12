@@ -62,11 +62,21 @@ cd mobile
 # 安装依赖
 flutter pub get
 
-# 运行应用
+# 运行应用（iOS 模拟器，或已执行 adb reverse 的 Android 真机）
 flutter run
+
+# Android 模拟器
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+
+# Android 真机（USB）
+adb reverse tcp:8000 tcp:8000
+flutter run
+
+# Android 真机（局域网）
+flutter run --dart-define=API_BASE_URL=http://<你的电脑局域网IP>:8000/api/v1
 ```
 
-> **提示**: 如果使用 Android 模拟器访问本地后端，API 地址使用 `http://10.0.2.2:8000`
+> **提示**: 移动端默认 API 地址为 `http://localhost:8000/api/v1`，可通过 `--dart-define=API_BASE_URL=...` 覆盖。
 
 ### 4. 开始使用
 

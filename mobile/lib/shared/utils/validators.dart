@@ -2,6 +2,39 @@
 class Validators {
   Validators._();
 
+  static const Set<String> _commonPasswords = {
+    'password',
+    '123456',
+    '123456789',
+    '12345678',
+    '1234567',
+    'qwerty',
+    'abc123',
+    'monkey',
+    '1234567890',
+    'letmein',
+    'trustno1',
+    'dragon',
+    'baseball',
+    'iloveyou',
+    'master',
+    'sunshine',
+    'ashley',
+    'football',
+    'shadow',
+    '123123',
+    '654321',
+    'superman',
+    'qazwsx',
+    'michael',
+    'password1',
+    'password123',
+    'welcome',
+    'welcome1',
+    'admin',
+    'login',
+  };
+
   static String? required(String? value, [String fieldName = '字段']) {
     if (value == null || value.trim().isEmpty) {
       return '$fieldName 不能为空';
@@ -20,13 +53,54 @@ class Validators {
     return null;
   }
 
-  static String? password(String? value) {
+  static String? password(String? value) => passwordRequired(value);
+
+  static String? passwordRequired(String? value, [String fieldName = '密码']) {
     if (value == null || value.isEmpty) {
-      return '密码不能为空';
+      return '$fieldName不能为空';
     }
-    if (value.length < 12) {
-      return '密码至少需要 12 个字符';
+    return null;
+  }
+
+  static String? strongPassword(String? value, {String fieldName = '密码'}) {
+    final requiredError = passwordRequired(value, fieldName);
+    if (requiredError != null) {
+      return requiredError;
     }
+
+    final password = value!;
+    if (password.length < 8) {
+      return '$fieldName长度至少为 8 个字符';
+    }
+    if (password.length > 128) {
+      return '$fieldName长度不能超过 128 个字符';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      return '$fieldName必须包含至少一个小写字母';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return '$fieldName必须包含至少一个大写字母';
+    }
+    if (!RegExp(r'\d').hasMatch(password)) {
+      return '$fieldName必须包含至少一个数字';
+    }
+
+    final lowerPassword = password.toLowerCase();
+    if (_commonPasswords.contains(lowerPassword)) {
+      return '$fieldName太简单，请使用更复杂的密码';
+    }
+
+    if (RegExp(r'^(.)\1{4,}$').hasMatch(password)) {
+      return '$fieldName包含弱模式，请使用更复杂的密码';
+    }
+
+    const weakPrefixes = ['123456', '654321', '111111', 'abcdef'];
+    for (final prefix in weakPrefixes) {
+      if (lowerPassword.startsWith(prefix)) {
+        return '$fieldName包含弱模式，请使用更复杂的密码';
+      }
+    }
+
     return null;
   }
 

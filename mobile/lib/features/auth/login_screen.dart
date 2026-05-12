@@ -1,4 +1,4 @@
-/// 登录页面
+// 登录页面
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -91,7 +91,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _emailController,
                     label: '邮箱',
                     hint: '请输入邮箱',
-                    keyboardType: TextInputType.emailAddress,
+                    keyboardType: TextInputType.text,
                     prefixIcon: const Icon(Icons.email_outlined),
                     validator: Validators.email,
                   ),
@@ -112,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         });
                       },
                     ),
-                    validator: Validators.password,
+                    validator: Validators.passwordRequired,
                   ),
                   const SizedBox(height: 32),
                   AppButton(

@@ -1,4 +1,4 @@
-/// 添加/编辑密码页面
+// 添加/编辑密码页面
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -62,6 +62,7 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
     setState(() => _isLoading = true);
 
     final item = KeyItemModel(
+      itemId: widget.item?.itemId ?? '',
       index: widget.item?.index ?? '',
       url: _urlController.text.trim(),
       username: _usernameController.text.trim(),
@@ -73,14 +74,24 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
 
     try {
       final notifier = ref.read(keyBookProvider.notifier);
+      final state = ref.read(keyBookProvider);
+      bool success;
       if (_isEditing) {
-        await notifier.updateItem(widget.item!.index, item);
+        success = await notifier.updateItem(widget.item!.apiId, item);
       } else {
-        await notifier.addItem(item);
+        success = await notifier.addItem(item) != null;
       }
 
-      if (mounted) {
+      if (success && mounted) {
         Navigator.of(context).pop(true);
+      } else if (mounted) {
+        final error = ref.read(keyBookProvider).error ?? state.error ?? '保存失败';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../lib/core/storage/local_storage.dart';
-import '../../lib/core/storage/key_item.dart';
-import '../../lib/core/storage/pending_operation.dart';
-import '../../test_helper.dart';
+import 'package:keybook/core/storage/key_item.dart';
+import 'package:keybook/core/storage/local_storage.dart';
+import 'package:keybook/core/storage/pending_operation.dart';
+
+import '../test_helper.dart';
 
 void main() {
   setupTestEnvironment();

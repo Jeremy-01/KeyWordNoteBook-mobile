@@ -1,9 +1,9 @@
 /// Riverpod Providers
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/token_manager.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/keybook_repository.dart';
-import '../core/network/token_manager.dart';
 import 'settings_provider.dart';
 
 export 'settings_provider.dart' show settingsProvider, localStorageProvider, biometricServiceProvider, syncServiceProvider;

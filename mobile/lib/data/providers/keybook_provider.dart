@@ -1,8 +1,8 @@
-/// 密码本状态管理 - Riverpod
+// 密码本状态管理 - Riverpod
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/api_exception.dart';
 import '../models/key_item_model.dart';
-import '../models/sync_models.dart';
 import '../repositories/keybook_repository.dart';
 import 'providers.dart';
 
@@ -76,6 +76,10 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
 
   KeyBookNotifier(this._repository) : super(KeyBookState());
 
+  String _messageForError(Object error) {
+    return error is ApiException ? error.message : error.toString();
+  }
+
   Future<void> loadItems({bool refresh = false}) async {
     if (state.isLoading) return;
 
@@ -95,11 +99,12 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
         items: refresh ? response.items : [...state.items, ...response.items],
         hasMore: response.hasMore,
         currentPage: response.page + 1,
+        error: null,
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _messageForError(e),
       );
     }
   }
@@ -117,25 +122,27 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
         items: [...state.items, ...response.items],
         hasMore: response.hasMore,
         currentPage: response.page + 1,
+        error: null,
       );
     } catch (e) {
       state = state.copyWith(
         isLoadingMore: false,
-        error: e.toString(),
+        error: _messageForError(e),
       );
     }
   }
 
   Future<String?> addItem(KeyItemModel item) async {
     try {
-      final index = await _repository.addItem(item);
+      final itemId = await _repository.addItem(item);
       state = state.copyWith(
-        items: [...state.items, item.copyWith(index: index)],
+        items: [...state.items, item.copyWith(itemId: itemId)],
         syncVersion: state.syncVersion + 1,
+        error: null,
       );
-      return index;
+      return itemId;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: _messageForError(e));
       return null;
     }
   }
@@ -144,16 +151,17 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
     try {
       await _repository.updateItem(itemId, item);
       final updatedItems = state.items.map((i) {
-        if (i.index == itemId) return item.copyWith(index: itemId);
+        if (i.apiId == itemId) return item.copyWith(itemId: itemId, index: i.index);
         return i;
       }).toList();
       state = state.copyWith(
         items: updatedItems,
         syncVersion: state.syncVersion + 1,
+        error: null,
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: _messageForError(e));
       return false;
     }
   }
@@ -162,12 +170,13 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
     try {
       await _repository.deleteItem(itemId);
       state = state.copyWith(
-        items: state.items.where((i) => i.index != itemId).toList(),
+        items: state.items.where((i) => i.apiId != itemId).toList(),
         syncVersion: state.syncVersion + 1,
+        error: null,
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: _messageForError(e));
       return false;
     }
   }
@@ -175,10 +184,10 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
   Future<KeyItemModel?> getItemDetail(String itemId) async {
     try {
       final item = await _repository.getItemDetail(itemId);
-      state = state.copyWith(selectedItem: item);
+      state = state.copyWith(selectedItem: item, error: null);
       return item;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: _messageForError(e));
       return null;
     }
   }
@@ -189,7 +198,7 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
 
   Future<bool> toggleFavorite(String itemId) async {
     try {
-      final itemIndex = state.items.indexWhere((i) => i.index == itemId);
+      final itemIndex = state.items.indexWhere((i) => i.apiId == itemId);
       if (itemIndex == -1) return false;
 
       final item = state.items[itemIndex];
@@ -202,10 +211,11 @@ class KeyBookNotifier extends StateNotifier<KeyBookState> {
       state = state.copyWith(
         items: updatedItems,
         syncVersion: state.syncVersion + 1,
+        error: null,
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: _messageForError(e));
       return false;
     }
   }

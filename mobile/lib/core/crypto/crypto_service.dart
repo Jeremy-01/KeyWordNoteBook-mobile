@@ -19,6 +19,8 @@ import 'package:pointycastle/export.dart';
 /// 提供密码哈希、AES加密、密钥派生、HMAC等功能
 /// 所有算法与后端 Python 实现保持一致
 class CryptoService {
+  const CryptoService();
+
   CryptoService._();
 
   // ==================== 安全参数（与后端 Argon2 等效） ====================
@@ -60,7 +62,7 @@ class CryptoService {
     final saltB64 = _base64UrlEncode(salt);
     final hashB64 = _base64UrlEncode(derivedKey);
 
-    return '\$argon2id\$v=19\$m=131072,t=6,p=6\$\$saltB64\$\$hashB64';
+    return '\$argon2id\$v=19\$m=131072,t=6,p=6\$$saltB64\$$hashB64';
   }
 
   /// 验证密码是否匹配哈希
@@ -68,7 +70,7 @@ class CryptoService {
     try {
       // 解析哈希字符串
       final parts = hash.split('\$');
-      if (parts.length < 5 || !parts[1].contains('argon2id')) {
+      if (parts.length < 6 || !parts[1].contains('argon2id')) {
         return false;
       }
 
@@ -166,6 +168,27 @@ class CryptoService {
     return utf8.decode(decrypted);
   }
 
+  /// 使用主密码加密任意字符串，返回自描述 JSON 载荷。
+  Future<String> encryptString(String plaintext, String masterPassword) async {
+    final salt = await generateEncryptionSalt();
+    final key = await deriveAesKey(masterPassword, salt);
+    final ciphertext = await encryptAes(plaintext, key);
+
+    return jsonEncode({
+      'salt': _base64UrlEncode(salt),
+      'ciphertext': ciphertext,
+    });
+  }
+
+  /// 使用主密码解密由 encryptString 生成的 JSON 载荷。
+  Future<String> decryptString(String payload, String masterPassword) async {
+    final data = jsonDecode(payload) as Map<String, dynamic>;
+    final salt = _base64UrlDecode(data['salt'] as String);
+    final key = await deriveAesKey(masterPassword, salt);
+
+    return decryptAes(data['ciphertext'] as String, key);
+  }
+
   // ==================== 密钥派生 ====================
 
   /// 派生 AES-256 密钥（32 字节）
@@ -243,16 +266,15 @@ class CryptoService {
     score += [hasLower, hasUpper, hasDigit, hasSpecial].where((x) => x).length;
 
     // 3. 复杂度评分
-    if (!password.contains(RegExp(r'^[0-9]+\$')) &&
-        !password.contains(RegExp(r'^[a-zA-Z]+\$'))) {
+    if (!RegExp(r'^[0-9]+$').hasMatch(password) &&
+        !RegExp(r'^[a-zA-Z]+$').hasMatch(password)) {
       score += 1;
     }
 
     // 检查弱模式
     final weakPatterns = [
-      RegExp(r'^(.)
-{4,}\$'), // 重复字符
-      RegExp(r'^123456|654321|111111|abcdef\$'),
+      RegExp(r'^(.)\1{3,}$'),
+      RegExp(r'^(123456|654321|111111|abcdef)$'),
     ];
     if (!weakPatterns.any((p) => p.hasMatch(password.toLowerCase()))) {
       score += 1;

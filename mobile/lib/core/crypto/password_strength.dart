@@ -26,16 +26,15 @@ class PasswordStrength {
 
     // 3. 复杂度评分（最高 3 分）
     // 3.1 非纯数字/字母
-    if (!RegExp(r'^[0-9]+\$').hasMatch(password) &&
-        !RegExp(r'^[a-zA-Z]+\$').hasMatch(password)) {
+    if (!RegExp(r'^[0-9]+$').hasMatch(password) &&
+        !RegExp(r'^[a-zA-Z]+$').hasMatch(password)) {
       score += 1;
     }
 
     // 3.2 无弱模式
     final weakPatterns = [
-      RegExp(r'^(.)
-{4,}\$'), // 重复字符
-      RegExp(r'^123456|654321|111111|abcdef|qwerty\$'),
+      RegExp(r'^(.)\1{3,}$'),
+      RegExp(r'^(123456|654321|111111|abcdef|qwerty)$'),
     ];
     if (!weakPatterns.any((p) => p.hasMatch(password.toLowerCase()))) {
       score += 1;

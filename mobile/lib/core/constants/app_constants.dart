@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// 应用常量
 class AppConstants {
   AppConstants._();
@@ -8,8 +10,16 @@ class AppConstants {
   /// 应用版本
   static const String appVersion = '1.0.0';
 
+  /// 调试模式
+  static bool get debug => kDebugMode;
+
+  static const String defaultApiBaseUrl = 'http://localhost:8000/api/v1';
+
   /// API 基础地址
-  static const String apiBaseUrl = 'http://localhost:8000/api/v1';
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: defaultApiBaseUrl,
+  );
 
   /// 数据库名称
   static const String databaseName = 'keybook.db';

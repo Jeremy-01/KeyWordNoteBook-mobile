@@ -1,4 +1,4 @@
-/// 注册页面
+// 注册页面
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -74,7 +74,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _emailController,
                   label: '邮箱',
                   hint: '请输入邮箱',
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType: TextInputType.text,
                   prefixIcon: const Icon(Icons.email_outlined),
                   validator: Validators.email,
                 ),
@@ -95,7 +95,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       });
                     },
                   ),
-                  validator: Validators.password,
+                  validator: Validators.strongPassword,
                   onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 8),

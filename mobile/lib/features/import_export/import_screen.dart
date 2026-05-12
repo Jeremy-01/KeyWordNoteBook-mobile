@@ -142,7 +142,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
   Future<void> _selectFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv', 'json'],
       );

@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/core/crypto/crypto_service.dart';
+import 'package:keybook/core/crypto/crypto_service.dart';
 
-import '../../test_helper.dart';
+import '../test_helper.dart';
 
 void main() {
   setupTestEnvironment();

@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../lib/data/providers/providers.dart';
-import '../../lib/data/providers/auth_provider.dart';
-import '../../lib/data/providers/keybook_provider.dart';
-import '../../lib/core/storage/local_storage.dart';
-import '../../lib/core/biometric/biometric_service.dart';
-import '../../lib/core/sync/sync_service.dart';
-import '../../lib/core/sync/sync_state.dart';
-import '../../test_helper.dart';
+import 'package:keybook/core/biometric/biometric_service.dart';
+import 'package:keybook/core/storage/local_storage.dart';
+import 'package:keybook/core/sync/sync_service.dart';
+import 'package:keybook/core/sync/sync_state.dart';
+import 'package:keybook/data/providers/auth_provider.dart';
+import 'package:keybook/data/providers/keybook_provider.dart';
+import 'package:keybook/data/providers/providers.dart';
+
+import '../test_helper.dart';
 
 void main() {
   setupTestEnvironment();
@@ -119,19 +120,19 @@ void main() {
     });
 
     test('同步服务应该可用', () {
-      final service = container.read(syncServiceProvider);
+      final service = container.read(syncServiceProvider(storage));
       expect(service, isNotNull);
     });
 
     test('同步状态初始应为idle', () async {
-      final state = await container.read(syncServiceProvider).getSyncState();
+      final state = await container.read(syncServiceProvider(storage)).getSyncState();
       expect(state.status, equals(SyncStatus.idle));
     });
 
     test('自动同步开关应该控制服务', () async {
       await container.read(settingsProvider.notifier).toggleAutoSync();
-      await container.read(syncServiceProvider).startAutoSync(intervalSeconds: 300);
-      final state = await container.read(syncServiceProvider).getSyncState();
+      await container.read(syncServiceProvider(storage)).startAutoSync(intervalSeconds: 300);
+      final state = await container.read(syncServiceProvider(storage)).getSyncState();
       expect(state.autoSyncEnabled, isTrue);
     });
   });
