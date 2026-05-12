@@ -10,8 +10,9 @@ class AutoLockService {
 
   AutoLockService({
     Duration? lockDuration,
-    this._onLock,
-  }) : _lockDuration = lockDuration ?? const Duration(minutes: 1);
+    VoidCallback? onLock,
+  })  : _onLock = onLock,
+        _lockDuration = lockDuration ?? const Duration(minutes: 1);
 
   Duration get lockDuration => _lockDuration;
   bool get isLocked => _isLocked;

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:keybook/core/biometric/biometric_service.dart';
 
-import '../../lib/core/biometric/biometric_service.dart';
-import '../../test_helper.dart';
+import '../test_helper.dart';
 
 void main() {
   setupTestEnvironment();

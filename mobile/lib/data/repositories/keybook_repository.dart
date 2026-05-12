@@ -1,4 +1,4 @@
-/// 密码本仓库 - 处理密码条目相关的 API 调用
+// 密码本仓库 - 处理密码条目相关的 API 调用
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/api_response.dart';
@@ -63,7 +63,7 @@ class KeyBookRepository {
       );
     }
 
-    return response.data!['index']?.toString() ?? '';
+    return response.data!['item_id']?.toString() ?? '';
   }
 
   Future<void> updateItem(String itemId, KeyItemModel item) async {

@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/core/sync/sync_conflict_resolver.dart';
-import '../../lib/core/storage/key_item.dart';
-import '../../test_helper.dart';
+import 'package:keybook/core/storage/key_item.dart';
+import 'package:keybook/core/sync/sync_conflict_resolver.dart';
+
+import '../test_helper.dart';
 
 void main() {
   setupTestEnvironment();

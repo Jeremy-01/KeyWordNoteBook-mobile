@@ -1,4 +1,4 @@
-/// 主页 - 密码列表
+// 主页 - 密码列表
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,14 +32,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
   }
 
   @override
@@ -209,18 +201,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     if (items.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
+            Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
               '暂无密码条目',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               '点击下方 + 按钮添加',
               style: TextStyle(color: Colors.grey),
             ),
@@ -244,7 +236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ItemDetailScreen(itemId: item.index),
+                  builder: (_) => ItemDetailScreen(itemId: item.apiId),
                 ),
               );
             },
@@ -257,7 +249,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
             onDelete: () => _showDeleteDialog(item),
             onToggleFavorite: () {
-              ref.read(keyBookProvider.notifier).toggleFavorite(item.index);
+              ref.read(keyBookProvider.notifier).toggleFavorite(item.apiId);
             },
           );
         },
@@ -286,7 +278,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     if (confirmed == true) {
-      await ref.read(keyBookProvider.notifier).deleteItem(item.index);
+      await ref.read(keyBookProvider.notifier).deleteItem(item.apiId);
     }
   }
 }
@@ -321,7 +313,7 @@ class _KeyItemCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(

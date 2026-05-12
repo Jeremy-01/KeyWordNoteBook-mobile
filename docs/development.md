@@ -464,14 +464,19 @@ flutter run
 
 #### 修改移动端 API 地址
 
-在 `mobile/lib/core/constants/api_endpoints.dart` 中修改:
+移动端默认 API 地址在 `mobile/lib/core/constants/app_constants.dart` 中定义为 `http://localhost:8000/api/v1`。
+开发时推荐通过 `--dart-define` 覆盖，而不是直接改源码:
 
-```dart
-class ApiEndpoints {
-  // 开发环境
-  static const String baseUrl = 'http://10.0.2.2:8000';  // Android 模拟器
-  // static const String baseUrl = 'http://localhost:8000';  // iOS 模拟器
-}
+```bash
+# Android 模拟器
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+
+# Android 真机（USB）
+adb reverse tcp:8000 tcp:8000
+flutter run
+
+# Android 真机（局域网）
+flutter run --dart-define=API_BASE_URL=http://<你的电脑局域网IP>:8000/api/v1
 ```
 
 ---

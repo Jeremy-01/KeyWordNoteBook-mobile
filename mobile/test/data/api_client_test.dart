@@ -1,12 +1,12 @@
 /// API 客户端测试 - TDD 方式
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/core/network/api_response.dart';
-import 'package:mobile/core/network/token_manager.dart';
-import 'package:mobile/core/network/api_exception.dart';
-import 'package:mobile/data/models/key_item_model.dart';
-import 'package:mobile/data/models/auth_models.dart';
+import 'package:keybook/core/network/api_exception.dart';
+import 'package:keybook/core/network/api_response.dart';
+import 'package:keybook/core/network/token_manager.dart';
+import 'package:keybook/data/models/auth_models.dart';
+import 'package:keybook/data/models/key_item_model.dart';
 
-import '../../test_helper.dart';
+import '../test_helper.dart';
 
 void main() {
   setupTestEnvironment();

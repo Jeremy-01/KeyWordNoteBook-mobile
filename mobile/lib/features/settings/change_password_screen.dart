@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/providers/auth_provider.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../shared/utils/validators.dart';
 
@@ -99,10 +98,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text('• 新密码至少 12 个字符'),
-                      const Text('• 应包含大小写字母'),
-                      const Text('• 应包含数字'),
-                      const Text('• 应包含特殊字符'),
+                      const Text('• 新密码至少 8 个字符'),
+                      const Text('• 应同时包含大小写字母'),
+                      const Text('• 应包含至少一个数字'),
                     ],
                   ),
                 ),
@@ -122,7 +120,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     setState(() => _obscureCurrent = !_obscureCurrent);
                   },
                 ),
-                validator: Validators.password,
+                validator: (value) => Validators.passwordRequired(value, '当前密码'),
               ),
               const SizedBox(height: 16),
               AppTextField(
@@ -139,15 +137,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     setState(() => _obscureNew = !_obscureNew);
                   },
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '新密码不能为空';
-                  }
-                  if (value.length < 12) {
-                    return '新密码至少需要 12 个字符';
-                  }
-                  return null;
-                },
+                validator: (value) => Validators.strongPassword(
+                  value,
+                  fieldName: '新密码',
+                ),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 8),

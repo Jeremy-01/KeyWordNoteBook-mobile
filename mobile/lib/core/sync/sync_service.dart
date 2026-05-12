@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import '../storage/local_storage.dart';
 import '../storage/key_item.dart';
+import '../storage/pending_operation.dart';
 import 'sync_state.dart';
 
 class SyncService {

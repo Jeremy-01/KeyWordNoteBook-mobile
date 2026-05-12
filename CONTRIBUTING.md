@@ -99,10 +99,20 @@ JWT_SECRET_KEY=your-secret-key-change-in-production
 DEBUG=True
 ```
 
-**移动端环境变量** (`mobile/.env`):
+**移动端 API 地址**:
 
-```env
-API_BASE_URL=http://localhost:8000
+移动端默认使用 `http://localhost:8000/api/v1`，可在运行时通过 `--dart-define` 覆盖。
+
+```bash
+# Android 模拟器
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+
+# Android 真机（USB）
+adb reverse tcp:8000 tcp:8000
+flutter run
+
+# Android 真机（局域网）
+flutter run --dart-define=API_BASE_URL=http://<你的电脑局域网IP>:8000/api/v1
 ```
 
 ---

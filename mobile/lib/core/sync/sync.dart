@@ -1,1 +1,1 @@
-import '../../lib/core/storage/pending_operation.dart';
+export '../storage/pending_operation.dart';

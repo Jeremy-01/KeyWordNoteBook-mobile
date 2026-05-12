@@ -1,5 +1,6 @@
 /// 密码条目模型
 class KeyItemModel {
+  final String itemId;
   final String index;
   final String url;
   final String username;
@@ -13,6 +14,7 @@ class KeyItemModel {
   final DateTime? updatedAt;
 
   KeyItemModel({
+    this.itemId = '',
     required this.index,
     required this.url,
     required this.username,
@@ -26,8 +28,11 @@ class KeyItemModel {
     this.updatedAt,
   });
 
+  String get apiId => itemId.isNotEmpty ? itemId : index;
+
   factory KeyItemModel.fromJson(Map<String, dynamic> json) {
     return KeyItemModel(
+      itemId: json['item_id']?.toString() ?? json['itemId']?.toString() ?? '',
       index: json['index']?.toString() ?? json['Index']?.toString() ?? '',
       url: json['url'] ?? json['URL'] ?? '',
       username: json['username'] ?? json['UserName'] ?? '',
@@ -47,6 +52,7 @@ class KeyItemModel {
   }
 
   Map<String, dynamic> toJson() => {
+    if (itemId.isNotEmpty) 'item_id': itemId,
     'index': index,
     'url': url,
     'username': username,
@@ -59,6 +65,7 @@ class KeyItemModel {
   };
 
   KeyItemModel copyWith({
+    String? itemId,
     String? index,
     String? url,
     String? username,
@@ -70,6 +77,7 @@ class KeyItemModel {
     String? groupId,
   }) {
     return KeyItemModel(
+      itemId: itemId ?? this.itemId,
       index: index ?? this.index,
       url: url ?? this.url,
       username: username ?? this.username,
@@ -89,8 +97,8 @@ class KeyItemModel {
       identical(this, other) ||
       other is KeyItemModel &&
           runtimeType == other.runtimeType &&
-          index == other.index;
+          apiId == other.apiId;
 
   @override
-  int get hashCode => index.hashCode;
+  int get hashCode => apiId.hashCode;
 }

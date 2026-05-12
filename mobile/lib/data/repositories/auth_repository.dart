@@ -2,15 +2,22 @@
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/api_response.dart';
+import '../../core/network/token_manager.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../models/auth_models.dart';
 
 /// 认证仓库
 class AuthRepository {
   final ApiClient _apiClient;
+  final TokenManager _tokenManager;
 
-  AuthRepository({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient.instance;
+  AuthRepository({ApiClient? apiClient, TokenManager? tokenManager})
+      : _apiClient = apiClient ?? ApiClient.instance,
+        _tokenManager = tokenManager ?? TokenManager();
+
+  Future<bool> hasValidSession() async {
+    return _tokenManager.hasValidToken();
+  }
 
   Future<UserInfo> register(RegisterRequest request) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
@@ -41,7 +48,9 @@ class AuthRepository {
       );
     }
 
-    return AuthResponse.fromJson(response.data!);
+    final auth = AuthResponse.fromJson(response.data!);
+    await _persistAuth(auth);
+    return auth;
   }
 
   Future<AuthResponse> refreshToken(String refreshToken) async {
@@ -57,10 +66,18 @@ class AuthRepository {
       );
     }
 
-    return AuthResponse.fromJson(response.data!);
+    final auth = AuthResponse.fromJson(response.data!);
+    await _persistAuth(auth);
+    return auth;
   }
 
   Future<void> logout() async {
     await _apiClient.clearAuth();
+  }
+
+  Future<void> _persistAuth(AuthResponse auth) async {
+    await _tokenManager.saveAccessToken(auth.accessToken);
+    await _tokenManager.saveRefreshToken(auth.refreshToken);
+    await _tokenManager.saveTokenExpiry(auth.expiresAt);
   }
 }

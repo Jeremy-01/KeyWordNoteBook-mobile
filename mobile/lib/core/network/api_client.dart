@@ -1,6 +1,5 @@
-/// API 客户端 - 基于 Dio
+// API 客户端 - 基于 Dio
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 
@@ -44,6 +43,13 @@ class ApiClient {
     final token = await _tokenManager.getAccessToken();
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
+    }
+
+    if (!options.headers.containsKey('X-Verify-Password')) {
+      final masterPassword = await _tokenManager.getMasterPassword();
+      if (masterPassword != null && masterPassword.isNotEmpty) {
+        options.headers['X-Verify-Password'] = masterPassword;
+      }
     }
 
     if (AppConstants.debug) {
@@ -171,17 +177,19 @@ class ApiClient {
     }
   }
 
-  void setMasterPassword(String password) {
+  Future<void> setMasterPassword(String password) async {
     _dio.options.headers['X-Verify-Password'] = password;
+    await _tokenManager.saveMasterPassword(password);
   }
 
-  void clearMasterPassword() {
+  Future<void> clearMasterPassword() async {
     _dio.options.headers.remove('X-Verify-Password');
+    await _tokenManager.clearMasterPassword();
   }
 
   Future<void> clearAuth() async {
     await _tokenManager.clearTokens();
-    clearMasterPassword();
+    _dio.options.headers.remove('X-Verify-Password');
   }
 }
 

@@ -34,13 +34,13 @@ class KeyBookApp extends ConsumerWidget {
         useMaterial3: true,
       ),
       // 根据认证状态决定显示登录页还是主页
-      home: authState.when(
-        data: (isLoggedIn) => isLoggedIn ? const HomeScreen() : const LoginScreen(),
-        loading: () => const Scaffold(
+      home: switch (authState.status) {
+        AuthStatus.authenticated => const HomeScreen(),
+        AuthStatus.loading || AuthStatus.initial => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
-        error: (_, __) => const LoginScreen(),
-      ),
+        _ => const LoginScreen(),
+      },
     );
   }
 }

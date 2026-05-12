@@ -1,6 +1,9 @@
-/// 认证状态管理 - Riverpod
+// 认证状态管理 - Riverpod
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/api_client.dart';
+import '../../core/network/api_exception.dart';
+import '../../core/network/token_manager.dart';
 import '../models/auth_models.dart';
 import '../repositories/auth_repository.dart';
 import 'providers.dart';
@@ -48,6 +51,7 @@ class AuthState {
 /// 认证状态管理器
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  final TokenManager _tokenManager = TokenManager();
 
   AuthNotifier(this._repository) : super(AuthState()) {
     _checkAuthStatus();
@@ -56,9 +60,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _checkAuthStatus() async {
     state = state.copyWith(status: AuthStatus.loading);
     try {
-      final hasToken = await _repository.login != null;
-      if (hasToken) {
-        state = state.copyWith(status: AuthStatus.authenticated);
+      final hasToken = await _repository.hasValidSession();
+      final masterPassword = await _tokenManager.getMasterPassword();
+
+      if (hasToken && masterPassword != null && masterPassword.isNotEmpty) {
+        await ApiClient.instance.setMasterPassword(masterPassword);
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          masterPassword: masterPassword,
+        );
       } else {
         state = state.copyWith(status: AuthStatus.unauthenticated);
       }
@@ -78,6 +88,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
         passwordConfirm: password,
       ));
+      await ApiClient.instance.setMasterPassword(password);
 
       state = state.copyWith(
         status: AuthStatus.authenticated,
@@ -88,7 +99,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        error: e.toString(),
+        error: e is ApiException ? e.message : e.toString(),
       );
       return false;
     }
@@ -100,10 +111,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(status: AuthStatus.loading);
     try {
-      final authResponse = await _repository.login(LoginRequest(
+      await _repository.login(LoginRequest(
         email: email,
         password: password,
       ));
+      await ApiClient.instance.setMasterPassword(password);
 
       state = state.copyWith(
         status: AuthStatus.authenticated,
@@ -113,7 +125,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        error: e.toString(),
+        error: e is ApiException ? e.message : e.toString(),
       );
       return false;
     }
@@ -121,6 +133,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     await _repository.logout();
+    await ApiClient.instance.clearMasterPassword();
     state = AuthState(status: AuthStatus.unauthenticated);
   }
 
