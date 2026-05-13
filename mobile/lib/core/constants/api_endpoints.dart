@@ -6,6 +6,7 @@ class ApiEndpoints {
   static const String register = '/auth/register';
   static const String login = '/auth/login';
   static const String refresh = '/auth/refresh';
+  static const String currentUser = '/auth/me';
 
   // 密码本
   static const String keybookItems = '/keybook/items';

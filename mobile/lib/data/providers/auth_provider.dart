@@ -75,8 +75,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (hasToken && masterPassword != null && masterPassword.isNotEmpty) {
         await ApiClient.instance.setMasterPassword(masterPassword);
+        final userInfo = await _repository.getCurrentUser();
         state = state.copyWith(
           status: AuthStatus.authenticated,
+          userInfo: userInfo,
           masterPassword: masterPassword,
           isCheckingSession: false,
           error: null,
@@ -143,9 +145,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       ));
       await ApiClient.instance.setMasterPassword(password);
+      final userInfo = await _repository.getCurrentUser();
 
       state = state.copyWith(
         status: AuthStatus.authenticated,
+        userInfo: userInfo,
         masterPassword: password,
         isSubmitting: false,
         error: null,

@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:keybook/core/network/token_manager.dart';
 import 'package:keybook/data/models/auth_models.dart';
 import 'package:keybook/data/providers/auth_provider.dart';
 import 'package:keybook/data/repositories/auth_repository.dart';
@@ -13,7 +14,13 @@ const MethodChannel _secureStorageChannel = MethodChannel(
 class _FakeAuthRepository extends AuthRepository {
   bool registerCalled = false;
   bool loginCalled = false;
+  bool getCurrentUserCalled = false;
   LoginRequest? lastLoginRequest;
+  final userInfo = UserInfo(
+    userId: 'user-1',
+    email: 'qa@example.com',
+    createdAt: DateTime(2026, 5, 13),
+  );
 
   @override
   Future<bool> hasValidSession() async => false;
@@ -37,6 +44,12 @@ class _FakeAuthRepository extends AuthRepository {
       refreshToken: 'refresh-token',
       expiresIn: 3600,
     );
+  }
+
+  @override
+  Future<UserInfo> getCurrentUser() async {
+    getCurrentUserCalled = true;
+    return userInfo;
   }
 
   @override
@@ -110,4 +123,49 @@ void main() {
     expect(repository.lastLoginRequest?.email, 'qa@example.com');
     expect(repository.lastLoginRequest?.password, 'Zxcm1234AB');
   });
+
+  test('login loads current user info into auth state', () async {
+    final repository = _FakeAuthRepository();
+    final notifier = AuthNotifier(repository);
+    addTearDown(notifier.dispose);
+
+    await wait();
+
+    final success = await notifier.login(
+      email: 'qa@example.com',
+      password: 'Zxcm1234AB',
+    );
+
+    expect(success, isTrue);
+    expect(repository.getCurrentUserCalled, isTrue);
+    expect(notifier.state.userInfo?.email, 'qa@example.com');
+    expect(notifier.state.userInfo?.createdAt, DateTime(2026, 5, 13));
+  });
+
+  test('restored session also loads current user info', () async {
+    final repository = _FakeAuthRepository();
+    final tokenManager = TokenManager();
+    await tokenManager.saveMasterPassword('Zxcm1234AB');
+
+    final notifier = AuthNotifier(_RestoredSessionAuthRepository(repository));
+    addTearDown(notifier.dispose);
+
+    await wait(milliseconds: 150);
+
+    expect(repository.getCurrentUserCalled, isTrue);
+    expect(notifier.state.isAuthenticated, isTrue);
+    expect(notifier.state.userInfo?.email, 'qa@example.com');
+  });
+}
+
+class _RestoredSessionAuthRepository extends AuthRepository {
+  _RestoredSessionAuthRepository(this.delegate);
+
+  final _FakeAuthRepository delegate;
+
+  @override
+  Future<bool> hasValidSession() async => true;
+
+  @override
+  Future<UserInfo> getCurrentUser() => delegate.getCurrentUser();
 }

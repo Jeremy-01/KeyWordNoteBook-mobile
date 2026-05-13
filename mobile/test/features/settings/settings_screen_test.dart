@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keybook/core/biometric/biometric_service.dart';
 import 'package:keybook/core/network/token_manager.dart';
+import 'package:keybook/data/models/auth_models.dart';
 import 'package:keybook/data/providers/providers.dart';
 import 'package:keybook/data/repositories/auth_repository.dart';
 import 'package:keybook/features/settings/settings_screen.dart';
@@ -18,6 +19,15 @@ const MethodChannel _secureStorageChannel = MethodChannel(
 class _FakeSessionAuthRepository extends AuthRepository {
   @override
   Future<bool> hasValidSession() async => true;
+
+  @override
+  Future<UserInfo> getCurrentUser() async {
+    return UserInfo(
+      userId: 'user-1',
+      email: 'qa@example.com',
+      createdAt: DateTime(2026, 5, 13),
+    );
+  }
 
   @override
   Future<void> logout() async {}

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keybook/app.dart';
 import 'package:keybook/core/network/api_response.dart';
 import 'package:keybook/core/network/token_manager.dart';
+import 'package:keybook/data/models/auth_models.dart';
 import 'package:keybook/data/models/key_item_model.dart';
 import 'package:keybook/data/providers/auth_provider.dart';
 import 'package:keybook/data/providers/providers.dart';
@@ -25,6 +26,15 @@ class _FakeAuthenticatedAuthRepository extends AuthRepository {
 
   @override
   Future<bool> hasValidSession() async => true;
+
+  @override
+  Future<UserInfo> getCurrentUser() async {
+    return UserInfo(
+      userId: 'user-1',
+      email: 'qa@example.com',
+      createdAt: DateTime(2026, 5, 13),
+    );
+  }
 
   @override
   Future<void> logout() async {

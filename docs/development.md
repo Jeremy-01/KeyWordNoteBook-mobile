@@ -535,6 +535,105 @@ logger.debug("Debug info")
 4. 输入 Token
 5. 测试其他接口
 
+### 近期踩坑记录
+
+以下问题都在本项目中实际踩过，并已经通过测试或真机回归验证过。后续遇到相似现象时，优先按这里排查，不要重复走弯路。
+
+#### 1. Flutter 命令必须从 `mobile/` 目录执行
+
+仓库根目录同时包含 `mobile/` 和 `server/`，不是 Flutter 项目根。
+
+```bash
+cd mobile
+flutter pub get
+flutter test
+flutter run
+```
+
+如果在仓库根目录直接执行 Flutter 命令，常见结果是找不到 `pubspec.yaml`，或者命令行为与预期不一致。
+
+#### 2. 真机 USB 调试优先走仓库脚本
+
+Android 真机联调时，推荐使用仓库内脚本或 VS Code 任务，而不是每次手动执行 `adb reverse`。
+
+```bash
+# 仅准备 USB 端口转发
+bash scripts/run-mobile-android-usb.sh --prepare-only
+
+# 准备后直接运行移动端
+bash scripts/run-mobile-android-usb.sh
+```
+
+这样可以避免忘记端口转发，导致移动端连不上本地 `http://localhost:8000/api/v1`。
+
+#### 3. `flutter clean` 后不要直接依赖 `flutter install --debug`
+
+本项目里已经遇到过：
+
+```bash
+flutter clean
+flutter install --debug -d <device>
+```
+
+执行后并不会自动重新生成 `build/app/outputs/flutter-apk/app-debug.apk`，从而安装失败。
+
+更稳妥的做法是显式先构建，再安装：
+
+```bash
+flutter build apk --debug
+flutter install --use-application-binary build/app/outputs/flutter-apk/app-debug.apk -d <device>
+```
+
+做真机回归时，优先使用这套命令。
+
+#### 4. Android 真机上的退出登录，不要依赖裸坐标点击弹窗
+
+设置页旧版退出确认是 Flutter `AlertDialog`。在 Xiaomi / Android 16 真机上，设备 XML 会暴露一个全屏 `Dismiss` 语义节点，导致 `adb shell input tap` 或按坐标点击经常被遮罩层吞掉，看起来像“按钮点了没反应”。
+
+排查这类问题时：
+
+- 优先用 `adb exec-out screencap -p` 看真实画面。
+- 用 `uiautomator dump` 校准控件 bounds 和语义节点，不要只猜坐标。
+- 真机自动化优先走仓库脚本 `scripts/run-mobile-android-uiautomator.sh`，而不是手工 tap。
+
+#### 5. 退出登录后的导航问题，根因不在按钮，而在根路由栈
+
+之前“从首页进入设置，再退出登录没有真正回到登录页”的问题，根因不是 `logout()` 接口，也不是按钮点击失败，而是认证前后共用了同一个根 `navigatorKey`。这样即使 `home:` 已经切回登录页，旧的受保护路由栈仍可能残留。
+
+修复思路是：
+
+- 认证态和未认证态使用不同的根 `navigatorKey`
+- 在认证状态切换时直接切换整棵根导航树
+
+如果后续又出现“UI 看似退出了，但返回键还能回到受保护页面”，先检查根导航树是否真正随认证态重建。
+
+#### 6. 自动锁定会污染真机调试结果
+
+`SettingsProvider` 默认 `autoLockMinutes = 1`。做较长时间的真机设置页或退出登录回归时，如果不先把自动锁定改长，稍微停顿就会被锁屏浮层覆盖，造成误判，看起来像“设置页点不动”“右上角按钮失效”或“自动化脚本失灵”。
+
+做长链路真机回归前，建议先在应用里把自动锁定切到 15 分钟。
+
+#### 7. 锁屏页才是当前剩余 overflow 的真实来源，不是登录页/注册页
+
+曾经怀疑登录页和注册页仍有键盘弹出后的 overflow，但专项测试已经证明这两个页面在 `390x780 + viewInsets.bottom = 320` 场景下是稳定的。
+
+真正仍会溢出的页面是锁屏页手动解锁面板：原布局是固定高度的 `Center + Column`，在键盘弹出后会触发 `RenderFlex overflowed by 101 pixels on the bottom`。
+
+稳定方案是比照首页骨架，把顶层改成可滚动结构：
+
+- `CustomScrollView`
+- `ScrollViewKeyboardDismissBehavior.onDrag`
+- `SliverFillRemaining(hasScrollBody: false)`
+- 内容区用 `ConstrainedBox(maxWidth: 520)` 保持大屏居中
+
+遇到类似“平时正常、键盘弹出就 overflow”的页面，优先先看顶层是否仍是固定高度 `Column`，而不是先改内部间距。
+
+#### 8. 后端本地启动依赖 `server/.env`
+
+本地直接启动后端前，先确认 `server/.env` 存在且配置完整。否则可能落回 `DEBUG=False` 的默认路径，并因为缺少 `JWT_SECRET_KEY` 被配置校验拦下。
+
+如果出现本地后端启动失败、但 Python 环境本身没问题，先检查 `.env`，再去怀疑解释器或依赖。
+
 ---
 
 ## 常见问题

@@ -193,18 +193,31 @@ public class LoginOpenSettingsTest extends UiAutomatorTestCase {
 
     UiObject emailField = new UiObject(
         new UiSelector().className("android.widget.EditText").instance(0));
-    UiObject passwordField = new UiObject(
-        new UiSelector().className("android.widget.EditText").instance(1));
 
-    if (!emailField.waitForExists(3000) || !passwordField.waitForExists(3000)) {
-      throw new AssertionError("Login fields did not appear");
+    if (!emailField.waitForExists(3000)) {
+      throw new AssertionError("Email field did not appear");
     }
 
     emailField.setText(EMAIL);
-    passwordField.setText(PASSWORD);
 
     device.swipe(610, 1450, 610, 950, 20);
     sleep(500);
+
+    UiObject passwordField = new UiObject(
+        new UiSelector().className("android.widget.EditText").instance(1));
+    if (!passwordField.waitForExists(3000)) {
+      throw new AssertionError("Password field did not appear after swipe");
+    }
+
+    passwordField.setText(PASSWORD);
+
+    device.pressBack();
+    sleep(500);
+
+    if (!loginButton.exists()) {
+      device.swipe(610, 1800, 610, 900, 20);
+      sleep(500);
+    }
 
     if (!loginButton.waitForExists(3000)) {
       throw new AssertionError("Login button did not become visible after swipe");

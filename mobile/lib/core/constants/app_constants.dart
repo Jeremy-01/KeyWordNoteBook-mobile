@@ -12,7 +12,7 @@ class AppConstants {
   static const String appDescription = '端到端加密、生物识别解锁与多端同步。';
 
   /// 应用版本
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '2.0.0';
 
   /// 调试模式
   static bool get debug => kDebugMode;

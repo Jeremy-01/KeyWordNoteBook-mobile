@@ -71,6 +71,21 @@ class AuthRepository {
     return auth;
   }
 
+  Future<UserInfo> getCurrentUser() async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      ApiEndpoints.currentUser,
+    );
+
+    if (!response.isSuccess) {
+      throw ApiException(
+        code: response.code,
+        message: response.message,
+      );
+    }
+
+    return UserInfo.fromJson(response.data!);
+  }
+
   Future<void> logout() async {
     await _apiClient.clearAuth();
   }
