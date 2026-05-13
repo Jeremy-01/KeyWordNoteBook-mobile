@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers/keybook_provider.dart';
 import '../../data/models/key_item_model.dart';
+import '../../data/providers/settings_provider.dart';
 import '../../core/crypto/crypto_service.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../shared/utils/validators.dart';
@@ -37,6 +38,7 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
   @override
   void initState() {
     super.initState();
+    _obscurePassword = ref.read(settingsProvider).hidePasswords;
     if (widget.item != null) {
       _urlController.text = widget.item!.url;
       _usernameController.text = widget.item!.username;
@@ -83,7 +85,21 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
       }
 
       if (success && mounted) {
-        Navigator.of(context).pop(true);
+        if (_isEditing) {
+          final updatedItem = widget.item!.copyWith(
+            url: item.url,
+            username: item.username,
+            password: item.password,
+            passwordLevel: item.passwordLevel,
+            linkUrl: item.linkUrl,
+            note: item.note,
+          );
+          Navigator.of(context).pop(
+            updatedItem,
+          );
+        } else {
+          Navigator.of(context).pop(true);
+        }
       } else if (mounted) {
         final error = ref.read(keyBookProvider).error ?? state.error ?? '保存失败';
         ScaffoldMessenger.of(context).showSnackBar(

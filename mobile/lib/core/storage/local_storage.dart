@@ -6,8 +6,12 @@ import 'key_item.dart';
 import 'pending_operation.dart';
 
 class LocalStorage {
-  static Database? _database;
+  Database? _database;
+  final String _databaseName;
   bool _isInitialized = false;
+
+  LocalStorage({String databaseName = 'keybook.db'})
+      : _databaseName = databaseName;
 
   bool get isInitialized => _isInitialized;
 
@@ -15,7 +19,7 @@ class LocalStorage {
     if (_isInitialized) return;
 
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'keybook.db');
+    final path = join(dbPath, _databaseName);
 
     _database = await openDatabase(
       path,
@@ -29,7 +33,7 @@ class LocalStorage {
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE items (
-        index TEXT PRIMARY KEY,
+        "index" TEXT PRIMARY KEY,
         url TEXT NOT NULL,
         username TEXT NOT NULL,
         password TEXT NOT NULL,
@@ -94,7 +98,7 @@ class LocalStorage {
   Future<KeyItem?> getItemByIndex(String index) async {
     final maps = await _database?.query(
       'items',
-      where: 'index = ?',
+      where: '"index" = ?',
       whereArgs: [index],
     );
     if (maps == null || maps.isEmpty) return null;
@@ -105,7 +109,7 @@ class LocalStorage {
     await _database?.update(
       'items',
       item.toMap(),
-      where: 'index = ?',
+      where: '"index" = ?',
       whereArgs: [item.index],
     );
   }
@@ -113,7 +117,7 @@ class LocalStorage {
   Future<void> deleteItem(String index) async {
     await _database?.delete(
       'items',
-      where: 'index = ?',
+      where: '"index" = ?',
       whereArgs: [index],
     );
   }

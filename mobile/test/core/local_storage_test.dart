@@ -11,19 +11,19 @@ void main() {
 
   group('LocalStorage - 数据库初始化', () {
     test('数据库应该能正常初始化', () async {
-      final storage = LocalStorage();
+      final storage = createTestLocalStorage('local_storage_init');
       await storage.init();
       expect(storage.isInitialized, isTrue);
     });
 
     test('重复初始化应该安全', () async {
-      final storage = LocalStorage();
+      final storage = createTestLocalStorage('local_storage_reinit');
       await storage.init();
       expect(() async => await storage.init(), returnsNormally);
     });
 
     test('关闭数据库应该成功', () async {
-      final storage = LocalStorage();
+      final storage = createTestLocalStorage('local_storage_close');
       await storage.init();
       await storage.close();
       expect(storage.isInitialized, isFalse);
@@ -34,7 +34,7 @@ void main() {
     late LocalStorage storage;
 
     setUp(() async {
-      storage = LocalStorage();
+      storage = createTestLocalStorage('local_storage_crud');
       await storage.init();
       await storage.clearAllItems();
     });
@@ -118,7 +118,7 @@ void main() {
     late LocalStorage storage;
 
     setUp(() async {
-      storage = LocalStorage();
+      storage = createTestLocalStorage('local_storage_sync_meta');
       await storage.init();
       await storage.clearAllItems();
     });
@@ -150,7 +150,7 @@ void main() {
     late LocalStorage storage;
 
     setUp(() async {
-      storage = LocalStorage();
+      storage = createTestLocalStorage('local_storage_pending');
       await storage.init();
       await storage.clearAllItems();
       await storage.clearPendingOperations();

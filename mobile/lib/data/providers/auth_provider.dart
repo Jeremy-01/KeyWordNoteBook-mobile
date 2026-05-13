@@ -8,6 +8,8 @@ import '../models/auth_models.dart';
 import '../repositories/auth_repository.dart';
 import 'providers.dart';
 
+const _errorNotProvided = Object();
+
 /// 认证状态
 enum AuthStatus {
   initial,
@@ -22,28 +24,36 @@ class AuthState {
   final UserInfo? userInfo;
   final String? error;
   final String? masterPassword;
+  final bool isCheckingSession;
+  final bool isSubmitting;
 
   AuthState({
     this.status = AuthStatus.initial,
     this.userInfo,
     this.error,
     this.masterPassword,
+    this.isCheckingSession = false,
+    this.isSubmitting = false,
   });
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
-  bool get isLoading => status == AuthStatus.loading;
+  bool get isLoading => isCheckingSession || isSubmitting;
 
   AuthState copyWith({
     AuthStatus? status,
     UserInfo? userInfo,
-    String? error,
+    Object? error = _errorNotProvided,
     String? masterPassword,
+    bool? isCheckingSession,
+    bool? isSubmitting,
   }) {
     return AuthState(
       status: status ?? this.status,
       userInfo: userInfo ?? this.userInfo,
-      error: error,
+      error: identical(error, _errorNotProvided) ? this.error : error as String?,
       masterPassword: masterPassword ?? this.masterPassword,
+      isCheckingSession: isCheckingSession ?? this.isCheckingSession,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
     );
   }
 }
@@ -58,7 +68,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _checkAuthStatus() async {
-    state = state.copyWith(status: AuthStatus.loading);
+    state = state.copyWith(isCheckingSession: true, error: null);
     try {
       final hasToken = await _repository.hasValidSession();
       final masterPassword = await _tokenManager.getMasterPassword();
@@ -68,12 +78,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           status: AuthStatus.authenticated,
           masterPassword: masterPassword,
+          isCheckingSession: false,
+          error: null,
         );
       } else {
-        state = state.copyWith(status: AuthStatus.unauthenticated);
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          isCheckingSession: false,
+          error: null,
+        );
       }
     } catch (e) {
-      state = state.copyWith(status: AuthStatus.unauthenticated);
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        isCheckingSession: false,
+        error: null,
+      );
     }
   }
 
@@ -81,12 +101,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
-    state = state.copyWith(status: AuthStatus.loading);
+    state = state.copyWith(isSubmitting: true, error: null);
     try {
       final user = await _repository.register(RegisterRequest(
         email: email,
         password: password,
         passwordConfirm: password,
+      ));
+      await _repository.login(LoginRequest(
+        email: email,
+        password: password,
       ));
       await ApiClient.instance.setMasterPassword(password);
 
@@ -94,11 +118,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.authenticated,
         userInfo: user,
         masterPassword: password,
+        isSubmitting: false,
+        error: null,
       );
       return true;
     } catch (e) {
       state = state.copyWith(
-        status: AuthStatus.error,
+        status: AuthStatus.unauthenticated,
+        isSubmitting: false,
         error: e is ApiException ? e.message : e.toString(),
       );
       return false;
@@ -109,7 +136,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
-    state = state.copyWith(status: AuthStatus.loading);
+    state = state.copyWith(isSubmitting: true, error: null);
     try {
       await _repository.login(LoginRequest(
         email: email,
@@ -120,11 +147,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         status: AuthStatus.authenticated,
         masterPassword: password,
+        isSubmitting: false,
+        error: null,
       );
       return true;
     } catch (e) {
       state = state.copyWith(
-        status: AuthStatus.error,
+        status: AuthStatus.unauthenticated,
+        isSubmitting: false,
         error: e is ApiException ? e.message : e.toString(),
       );
       return false;

@@ -1,8 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/biometric/biometric_service.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/sync/sync_service.dart';
+
+class SettingsStorageKeys {
+  SettingsStorageKeys._();
+
+  static const String autoLockMinutes = 'settings.auto_lock_minutes';
+}
+
+class SettingsStorage {
+  Future<int?> getAutoLockMinutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(SettingsStorageKeys.autoLockMinutes);
+  }
+
+  Future<void> saveAutoLockMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(SettingsStorageKeys.autoLockMinutes, minutes);
+  }
+}
 
 class SettingsState {
   final bool biometricEnabled;
@@ -37,10 +56,27 @@ class SettingsState {
 }
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
-  SettingsNotifier() : super(SettingsState());
+  SettingsNotifier(this._storage) : super(SettingsState()) {
+    _loadPersistedSettings();
+  }
+
+  final SettingsStorage _storage;
+
+  Future<void> _loadPersistedSettings() async {
+    final autoLockMinutes = await _storage.getAutoLockMinutes();
+    if (autoLockMinutes == null) {
+      return;
+    }
+
+    state = state.copyWith(autoLockMinutes: autoLockMinutes);
+  }
+
+  Future<void> setBiometricEnabled(bool enabled) async {
+    state = state.copyWith(biometricEnabled: enabled);
+  }
 
   Future<void> toggleBiometric() async {
-    state = state.copyWith(biometricEnabled: !state.biometricEnabled);
+    await setBiometricEnabled(!state.biometricEnabled);
   }
 
   Future<void> toggleAutoSync() async {
@@ -57,11 +93,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   Future<void> setAutoLockDuration(int minutes) async {
     state = state.copyWith(autoLockMinutes: minutes);
+    await _storage.saveAutoLockMinutes(minutes);
   }
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
-  return SettingsNotifier();
+  return SettingsNotifier(ref.watch(settingsStorageProvider));
+});
+
+final settingsStorageProvider = Provider<SettingsStorage>((ref) {
+  return SettingsStorage();
 });
 
 final localStorageProvider = Provider<LocalStorage>((ref) {

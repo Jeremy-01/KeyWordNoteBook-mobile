@@ -55,28 +55,41 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### 3. 启动移动端
 
+不要直接在 [mobile](mobile) 目录里手敲 `flutter run`。
+Android 真机 USB 调试统一使用下面两种方式之一。
+
+启动前请先确认：
+
+1. [server](server) 目录对应的后端服务还在运行，也就是 `uvicorn` 不要停。
+2. Android 手机已通过 USB 连接电脑。
+
+#### 方式一：终端方式
+
+在仓库根目录执行：
+
 ```bash
-# 新开终端
-cd mobile
-
-# 安装依赖
-flutter pub get
-
-# 运行应用（iOS 模拟器，或已执行 adb reverse 的 Android 真机）
-flutter run
-
-# Android 模拟器
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
-
-# Android 真机（USB）
-adb reverse tcp:8000 tcp:8000
-flutter run
-
-# Android 真机（局域网）
-flutter run --dart-define=API_BASE_URL=http://<你的电脑局域网IP>:8000/api/v1
+/bin/bash ./scripts/run-mobile-android-usb.sh
 ```
 
-> **提示**: 移动端默认 API 地址为 `http://localhost:8000/api/v1`，可通过 `--dart-define=API_BASE_URL=...` 覆盖。
+如果同时连接了多台 Android 设备，带上设备 ID：
+
+```bash
+/bin/bash ./scripts/run-mobile-android-usb.sh -d EILN9T6DZ9QWEY9P
+```
+
+#### 方式二：VS Code 任务方式
+
+1. 打开 VS Code。
+2. 进入 `Terminal > Run Task`。
+3. 选择 `Mobile: Flutter run (Android USB)`。
+
+也可以使用命令面板：
+
+1. 按 `Cmd+Shift+P`。
+2. 输入 `Tasks: Run Task`。
+3. 选择 `Mobile: Flutter run (Android USB)`。
+
+> **提示**: 如需直接点 VS Code 左侧“运行和调试”按钮，可使用 [.vscode/launch.json](.vscode/launch.json) 中的 `Mobile: Flutter Debug (Android USB)`。该配置会先执行 [.vscode/tasks.json](.vscode/tasks.json) 里的 `Mobile: Prepare Android USB`，自动完成 `adb reverse`，再从 [mobile](mobile) 目录启动 Flutter 调试。
 
 ### 4. 开始使用
 

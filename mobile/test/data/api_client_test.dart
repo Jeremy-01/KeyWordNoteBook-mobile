@@ -1,8 +1,9 @@
-/// API 客户端测试 - TDD 方式
+// API 客户端测试 - TDD 方式
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:keybook/core/network/api_client.dart';
 import 'package:keybook/core/network/api_exception.dart';
 import 'package:keybook/core/network/api_response.dart';
-import 'package:keybook/core/network/token_manager.dart';
 import 'package:keybook/data/models/auth_models.dart';
 import 'package:keybook/data/models/key_item_model.dart';
 
@@ -182,6 +183,110 @@ void main() {
 
       expect(str, contains('1002'));
       expect(str, contains('Token 已过期'));
+    });
+  });
+
+  group('shouldAttemptTokenRefresh', () {
+    test('登录请求的 401 不应该触发 refresh', () {
+      final options = RequestOptions(path: '/auth/login');
+
+      expect(shouldAttemptTokenRefresh(options), isFalse);
+    });
+
+    test('refresh 请求的 401 不应该递归触发 refresh', () {
+      final options = RequestOptions(path: '/auth/refresh');
+
+      expect(shouldAttemptTokenRefresh(options), isFalse);
+    });
+
+    test('普通业务请求的 401 应该允许尝试 refresh', () {
+      final options = RequestOptions(path: '/keybook/items');
+
+      expect(shouldAttemptTokenRefresh(options), isTrue);
+    });
+
+    test('已标记跳过 refresh 的请求不应该再次尝试 refresh', () {
+      final options = RequestOptions(
+        path: '/keybook/items',
+        extra: {'skipTokenRefresh': true},
+      );
+
+      expect(shouldAttemptTokenRefresh(options), isFalse);
+    });
+  });
+
+  group('requiresMasterPassword', () {
+    test('获取列表不应该携带主密码头', () {
+      final options = RequestOptions(
+        path: '/keybook/items',
+        method: 'GET',
+      );
+
+      expect(requiresMasterPassword(options), isFalse);
+    });
+
+    test('新增条目应该携带主密码头', () {
+      final options = RequestOptions(
+        path: '/keybook/items',
+        method: 'POST',
+      );
+
+      expect(requiresMasterPassword(options), isTrue);
+    });
+
+    test('读取详情应该携带主密码头', () {
+      final options = RequestOptions(
+        path: '/keybook/items/123',
+        method: 'GET',
+      );
+
+      expect(requiresMasterPassword(options), isTrue);
+    });
+
+    test('同步接口不应该携带主密码头', () {
+      final options = RequestOptions(
+        path: '/sync/pull',
+        method: 'POST',
+      );
+
+      expect(requiresMasterPassword(options), isFalse);
+    });
+  });
+
+  group('sanitizeLogData', () {
+    test('应该脱敏敏感字段', () {
+      final sanitized = sanitizeLogData({
+        'email': 'test@example.com',
+        'password': 'P@ss123!',
+        'nested': {
+          'refresh_token': 'secret-refresh-token',
+        },
+      }) as Map<dynamic, dynamic>;
+
+      expect(sanitized['email'], equals('test@example.com'));
+      expect(sanitized['password'], equals('***'));
+      expect(
+        (sanitized['nested'] as Map<dynamic, dynamic>)['refresh_token'],
+        equals('***'),
+      );
+    });
+
+    test('应该递归处理列表中的对象', () {
+      final sanitized = sanitizeLogData([
+        {
+          'access_token': 'secret-access-token',
+          'label': 'token',
+        },
+      ]) as List<dynamic>;
+
+      expect(
+        (sanitized.first as Map<dynamic, dynamic>)['access_token'],
+        equals('***'),
+      );
+      expect(
+        (sanitized.first as Map<dynamic, dynamic>)['label'],
+        equals('token'),
+      );
     });
   });
 }

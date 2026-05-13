@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Mobile: Flutter Debug (Android USB)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/mobile",
+      "flutterMode": "debug",
+      "preLaunchTask": "Mobile: Prepare Android USB"
+    }
+  ]
+}

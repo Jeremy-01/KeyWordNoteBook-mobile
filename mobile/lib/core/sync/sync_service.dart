@@ -63,6 +63,8 @@ class SyncService {
 
   Future<void> dispose() async {
     await stopAutoSync();
-    _syncCompleter?.complete(null);
+    if (_syncCompleter != null && !_syncCompleter!.isCompleted) {
+      _syncCompleter!.complete();
+    }
   }
 }

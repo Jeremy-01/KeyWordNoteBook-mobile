@@ -1,10 +1,11 @@
-/// 密码详情页面
+// 密码详情页面
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/providers/keybook_provider.dart';
-import '../../data/models/key_item_model.dart';
 import '../../core/utils/clipboard_utils.dart';
+import '../../data/models/key_item_model.dart';
+import '../../data/providers/keybook_provider.dart';
+import '../../data/providers/settings_provider.dart';
 import 'item_edit_screen.dart';
 
 class ItemDetailScreen extends ConsumerStatefulWidget {
@@ -24,30 +25,100 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   bool _isLoading = true;
   bool _showPassword = false;
   String? _error;
+  late final ProviderSubscription<KeyBookState> _keyBookSubscription;
 
   @override
   void initState() {
     super.initState();
+    _keyBookSubscription = ref.listenManual<KeyBookState>(
+      keyBookProvider,
+      (_, next) {
+        final updatedItem = _mergeDisplayItem(_findStateItem(next.items), _item);
+        if (!mounted || updatedItem == null) {
+          return;
+        }
+
+        if (_item?.url == updatedItem.url &&
+            _item?.username == updatedItem.username &&
+            _item?.password == updatedItem.password &&
+            _item?.passwordLevel == updatedItem.passwordLevel &&
+            _item?.linkUrl == updatedItem.linkUrl &&
+            _item?.note == updatedItem.note &&
+            _item?.isFavorite == updatedItem.isFavorite) {
+          return;
+        }
+
+        setState(() {
+          _item = updatedItem;
+          _error = null;
+          _isLoading = false;
+        });
+      },
+    );
     _loadItem();
   }
 
-  Future<void> _loadItem() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _keyBookSubscription.close();
+    super.dispose();
+  }
+
+  KeyItemModel? _findStateItem(List<KeyItemModel> items) {
+    for (final item in items) {
+      if (item.apiId == widget.itemId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  KeyItemModel? _mergeDisplayItem(
+    KeyItemModel? stateItem,
+    KeyItemModel? detailItem,
+  ) {
+    if (stateItem == null) {
+      return detailItem;
+    }
+    if (detailItem == null) {
+      return stateItem;
+    }
+
+    final hasPassword = stateItem.password != null && stateItem.password!.isNotEmpty;
+    return stateItem.copyWith(
+      password: hasPassword ? stateItem.password : detailItem.password,
+      passwordLevel:
+          hasPassword ? stateItem.passwordLevel : detailItem.passwordLevel,
+    );
+  }
+
+  Future<void> _loadItem({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _error = null;
+      });
+    }
 
     try {
       final item = await ref
           .read(keyBookProvider.notifier)
           .getItemDetail(widget.itemId);
+      if (!mounted) return;
       setState(() {
         _item = item;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        if (showLoading || _item == null) {
+          _error = e.toString();
+        }
         _isLoading = false;
       });
     }
@@ -59,28 +130,61 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyBookState = ref.watch(keyBookProvider);
+    final syncedItem = _findStateItem(keyBookState.items);
+    final displayItem = _mergeDisplayItem(syncedItem, _item);
+    final hidePasswords = ref.watch(
+      settingsProvider.select((state) => state.hidePasswords),
+    );
+    final passwordVisible = !hidePasswords || _showPassword;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('密码详情'),
         actions: [
-          if (_item != null)
+          if (displayItem != null)
             IconButton(
               icon: const Icon(Icons.edit),
-              onPressed: () {
-                Navigator.of(context).push(
+              onPressed: () async {
+                final result = await Navigator.of(context).push<Object?>(
                   MaterialPageRoute(
-                    builder: (_) => ItemEditScreen(item: _item),
+                    builder: (_) => ItemEditScreen(item: displayItem),
                   ),
                 );
+
+                if (!mounted || result == null) {
+                  return;
+                }
+
+                if (result is KeyItemModel) {
+                  setState(() {
+                    _item = result;
+                    _error = null;
+                    _isLoading = false;
+                  });
+                  return;
+                }
+
+                if (result == true) {
+                  await _loadItem();
+                }
               },
             ),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(
+        item: displayItem,
+        hidePasswords: hidePasswords,
+        passwordVisible: passwordVisible,
+      ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody({
+    required KeyItemModel? item,
+    required bool hidePasswords,
+    required bool passwordVisible,
+  }) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -103,9 +207,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
       );
     }
 
-    if (_item == null) {
+    if (item == null) {
       return const Center(child: Text('未找到密码条目'));
     }
+
+    final currentItem = item;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -113,61 +219,63 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         children: [
           _DetailCard(
             label: '网站',
-            value: _item!.url,
+            value: currentItem.url,
             icon: Icons.language,
-            onCopy: () => _copyToClipboard(_item!.url, '网址'),
+            onCopy: () => _copyToClipboard(currentItem.url, '网址'),
           ),
           const SizedBox(height: 16),
           _DetailCard(
             label: '用户名',
-            value: _item!.username,
+            value: currentItem.username,
             icon: Icons.person,
-            onCopy: () => _copyToClipboard(_item!.username, '用户名'),
+            onCopy: () => _copyToClipboard(currentItem.username, '用户名'),
           ),
           const SizedBox(height: 16),
           _DetailCard(
             label: '密码',
-            value: _showPassword ? (_item!.password ?? '') : '••••••••',
+            value: passwordVisible ? (currentItem.password ?? '') : '••••••••',
             icon: Icons.lock,
             isPassword: true,
-            showPassword: _showPassword,
-            onToggleVisibility: () {
-              setState(() {
-                _showPassword = !_showPassword;
-              });
-            },
+            showPassword: passwordVisible,
+            onToggleVisibility: hidePasswords
+                ? () {
+                    setState(() {
+                      _showPassword = !_showPassword;
+                    });
+                  }
+                : null,
             onCopy: () {
-              if (_item!.password != null) {
-                _copyToClipboard(_item!.password!, '密码');
+              if (currentItem.password != null) {
+                _copyToClipboard(currentItem.password!, '密码');
               }
             },
           ),
-          if (_item!.linkUrl != null && _item!.linkUrl!.isNotEmpty) ...[
+          if (currentItem.linkUrl.isNotEmpty) ...[
             const SizedBox(height: 16),
             _DetailCard(
               label: '链接',
-              value: _item!.linkUrl!,
+              value: currentItem.linkUrl,
               icon: Icons.link,
-              onCopy: () => _copyToClipboard(_item!.linkUrl!, '链接'),
+              onCopy: () => _copyToClipboard(currentItem.linkUrl, '链接'),
             ),
           ],
-          if (_item!.note != null && _item!.note!.isNotEmpty) ...[
+          if (currentItem.note.isNotEmpty) ...[
             const SizedBox(height: 16),
             _DetailCard(
               label: '备注',
-              value: _item!.note!,
+              value: currentItem.note,
               icon: Icons.note,
             ),
           ],
           const SizedBox(height: 16),
-          _buildPasswordStrength(),
+          _buildPasswordStrength(currentItem),
         ],
       ),
     );
   }
 
-  Widget _buildPasswordStrength() {
-    final level = _item!.passwordLevel;
+  Widget _buildPasswordStrength(KeyItemModel item) {
+    final level = item.passwordLevel;
     final color = switch (level) {
       0 => Colors.red,
       1 => Colors.orange,

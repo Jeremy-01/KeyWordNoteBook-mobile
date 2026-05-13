@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Mobile: Prepare Android USB",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "${workspaceFolder}/scripts/run-mobile-android-usb.sh",
+        "--prepare-only"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Mobile: Flutter run (Android USB)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "${workspaceFolder}/scripts/run-mobile-android-usb.sh"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

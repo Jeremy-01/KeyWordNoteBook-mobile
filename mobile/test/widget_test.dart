@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keybook/main.dart';
+import 'package:keybook/core/constants/app_constants.dart';
+import 'package:keybook/core/theme/keybook_theme.dart';
+import 'package:keybook/shared/widgets/brand_banner.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('BrandBanner 应该展示统一的产品标识', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: KeyBookTheme.light(),
+        home: const Scaffold(
+          body: Padding(
+            padding: EdgeInsets.all(24),
+            child: BrandBanner(
+              subtitle: '与你的桌面端保持一致的安全密码体验',
+              supportingText: '端到端加密、生物识别解锁与多端同步',
+            ),
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text(AppConstants.appName), findsOneWidget);
+    expect(find.text('与你的桌面端保持一致的安全密码体验'), findsOneWidget);
+    expect(find.text('端到端加密、生物识别解锁与多端同步'), findsOneWidget);
+    expect(find.byIcon(Icons.key_rounded), findsOneWidget);
   });
 }

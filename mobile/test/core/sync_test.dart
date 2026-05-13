@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keybook/core/storage/key_item.dart';
 import 'package:keybook/core/storage/local_storage.dart';
+import 'package:keybook/core/storage/pending_operation.dart';
 import 'package:keybook/core/sync/sync_service.dart';
 import 'package:keybook/core/sync/sync_state.dart';
 
@@ -14,7 +17,7 @@ void main() {
     late LocalStorage localStorage;
 
     setUp(() async {
-      localStorage = LocalStorage();
+      localStorage = createTestLocalStorage('sync_state');
       await localStorage.init();
       syncService = SyncService(localStorage: localStorage);
     });
@@ -49,7 +52,7 @@ void main() {
     late LocalStorage localStorage;
 
     setUp(() async {
-      localStorage = LocalStorage();
+      localStorage = createTestLocalStorage('sync_pending');
       await localStorage.init();
       await localStorage.clearPendingOperations();
       syncService = SyncService(localStorage: localStorage);
@@ -93,7 +96,7 @@ void main() {
     late LocalStorage localStorage;
 
     setUp(() async {
-      localStorage = LocalStorage();
+      localStorage = createTestLocalStorage('sync_flow');
       await localStorage.init();
       await localStorage.clearAllItems();
       await localStorage.clearPendingOperations();
@@ -105,13 +108,13 @@ void main() {
       await localStorage.close();
     });
 
-    test('startSync应该返回Future', () {
+    test('startSync应该返回Completer', () {
       final result = syncService.startSync();
-      expect(result, isA<Future<void>>());
+      expect(result, isA<Completer<void>>());
+      result.complete();
     });
 
     test('同步完成后应该更新本地版本', () async {
-      final stateBefore = await syncService.getSyncState();
       final completer = syncService.startSync();
       await Future.delayed(const Duration(milliseconds: 100));
       completer.complete(null);
@@ -147,7 +150,7 @@ void main() {
     late LocalStorage localStorage;
 
     setUp(() async {
-      localStorage = LocalStorage();
+      localStorage = createTestLocalStorage('sync_auto');
       await localStorage.init();
       syncService = SyncService(localStorage: localStorage);
     });

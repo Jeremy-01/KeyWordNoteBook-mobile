@@ -3,10 +3,64 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../constants/api_endpoints.dart';
 import 'api_response.dart';
 import 'api_exception.dart';
 import 'token_manager.dart';
 import '../constants/app_constants.dart';
+
+const _skipTokenRefreshKey = 'skipTokenRefresh';
+const _verifyPasswordHeader = 'X-Verify-Password';
+const _redactedValue = '***';
+const _sensitiveLogKeys = {
+  'password',
+  'password_confirm',
+  'refresh_token',
+  'access_token',
+  'master_password',
+  'x-verify-password',
+};
+
+bool shouldAttemptTokenRefresh(RequestOptions options) {
+  if (options.extra[_skipTokenRefreshKey] == true) {
+    return false;
+  }
+
+  final path = options.path;
+  return !path.endsWith(ApiEndpoints.login) &&
+      !path.endsWith(ApiEndpoints.register) &&
+      !path.endsWith(ApiEndpoints.refresh);
+}
+
+bool requiresMasterPassword(RequestOptions options) {
+  final method = options.method.toUpperCase();
+  final path = options.path;
+
+  if (path == ApiEndpoints.keybookItems) {
+    return method != 'GET';
+  }
+
+  return path.startsWith('${ApiEndpoints.keybookItems}/');
+}
+
+dynamic sanitizeLogData(dynamic data) {
+  if (data is Map) {
+    return data.map((key, value) {
+      final keyString = key.toString();
+      final normalizedKey = keyString.toLowerCase();
+      final sanitizedValue = _sensitiveLogKeys.contains(normalizedKey)
+          ? _redactedValue
+          : sanitizeLogData(value);
+      return MapEntry(key, sanitizedValue);
+    });
+  }
+
+  if (data is Iterable) {
+    return data.map(sanitizeLogData).toList(growable: false);
+  }
+
+  return data;
+}
 
 /// API 客户端单例
 class ApiClient {
@@ -45,17 +99,19 @@ class ApiClient {
       options.headers['Authorization'] = 'Bearer $token';
     }
 
-    if (!options.headers.containsKey('X-Verify-Password')) {
+    if (!requiresMasterPassword(options)) {
+      options.headers.remove(_verifyPasswordHeader);
+    } else if (!options.headers.containsKey(_verifyPasswordHeader)) {
       final masterPassword = await _tokenManager.getMasterPassword();
       if (masterPassword != null && masterPassword.isNotEmpty) {
-        options.headers['X-Verify-Password'] = masterPassword;
+        options.headers[_verifyPasswordHeader] = masterPassword;
       }
     }
 
     if (AppConstants.debug) {
       print('[API] ${options.method} ${options.uri}');
       if (options.data != null) {
-        print('[API] Body: ${jsonEncode(options.data)}');
+        print('[API] Body: ${jsonEncode(sanitizeLogData(options.data))}');
       }
     }
 
@@ -70,7 +126,8 @@ class ApiClient {
       print('[API Error] ${error.message}');
     }
 
-    if (error.response?.statusCode == 401) {
+    if (error.response?.statusCode == 401 &&
+        shouldAttemptTokenRefresh(error.requestOptions)) {
       final refreshed = await _tryRefreshToken();
       if (refreshed) {
         final response = await _retry(error.requestOptions);
@@ -89,7 +146,10 @@ class ApiClient {
       final response = await _dio.post(
         '/auth/refresh',
         data: {'refresh_token': refreshToken},
-        options: Options(headers: {}),
+        options: Options(
+          headers: {},
+          extra: {_skipTokenRefreshKey: true},
+        ),
       );
 
       if (response.statusCode == 200 && response.data['code'] == 0) {
@@ -106,6 +166,7 @@ class ApiClient {
   Future<Response> _retry(RequestOptions options) async {
     final token = await _tokenManager.getAccessToken();
     options.headers['Authorization'] = 'Bearer $token';
+    options.extra[_skipTokenRefreshKey] = true;
     return _dio.fetch(options);
   }
 
@@ -178,7 +239,6 @@ class ApiClient {
   }
 
   Future<void> setMasterPassword(String password) async {
-    _dio.options.headers['X-Verify-Password'] = password;
     await _tokenManager.saveMasterPassword(password);
   }
 

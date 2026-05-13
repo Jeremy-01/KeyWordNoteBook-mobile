@@ -11,7 +11,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:cryptography/cryptography.dart';
 import 'package:pointycastle/export.dart';
 
 /// 加密服务类
@@ -21,12 +20,13 @@ import 'package:pointycastle/export.dart';
 class CryptoService {
   const CryptoService();
 
-  CryptoService._();
-
   // ==================== 安全参数（与后端 Argon2 等效） ====================
 
   /// 内存成本（KB）- 与后端 Argon2 保持一致
   static const int _argon2MemoryCost = 131072;
+
+  /// Argon2 时间成本
+  static const int _argon2TimeCost = 6;
 
   /// 迭代次数 - PBKDF2 等效于 Argon2 的安全级别
   /// 根据 OWASP 建议，PBKDF2-SHA256 需要 600,000+ 次迭代才能达到 Argon2id 的安全级别
@@ -62,7 +62,7 @@ class CryptoService {
     final saltB64 = _base64UrlEncode(salt);
     final hashB64 = _base64UrlEncode(derivedKey);
 
-    return '\$argon2id\$v=19\$m=131072,t=6,p=6\$$saltB64\$$hashB64';
+    return '\$argon2id\$v=19\$m=$_argon2MemoryCost,t=$_argon2TimeCost,p=$_argon2Parallelism\$$saltB64\$$hashB64';
   }
 
   /// 验证密码是否匹配哈希
@@ -247,6 +247,19 @@ class CryptoService {
   static int getPasswordLevel(String password) {
     if (password.isEmpty) return 0;
 
+    final normalizedPassword = password.toLowerCase();
+    final weakPatterns = [
+      RegExp(r'^(.)\1{3,}$'),
+      RegExp(r'^(123456|654321|111111|abcdef)$'),
+    ];
+    final commonWords = {'password', '123456', 'qwerty', 'admin', 'user'};
+
+    if (password.length < 8 ||
+        commonWords.contains(normalizedPassword) ||
+        weakPatterns.any((pattern) => pattern.hasMatch(normalizedPassword))) {
+      return 0;
+    }
+
     int score = 0;
 
     // 1. 长度评分
@@ -272,17 +285,12 @@ class CryptoService {
     }
 
     // 检查弱模式
-    final weakPatterns = [
-      RegExp(r'^(.)\1{3,}$'),
-      RegExp(r'^(123456|654321|111111|abcdef)$'),
-    ];
     if (!weakPatterns.any((p) => p.hasMatch(password.toLowerCase()))) {
       score += 1;
     }
 
     // 检查常见弱密码
-    final commonWords = {'password', '123456', 'qwerty', 'admin', 'user'};
-    if (!commonWords.contains(password.toLowerCase())) {
+    if (!commonWords.contains(normalizedPassword)) {
       score += 1;
     }
 

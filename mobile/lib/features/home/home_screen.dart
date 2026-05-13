@@ -2,8 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/providers/keybook_provider.dart';
 import '../../data/models/key_item_model.dart';
+import '../../shared/widgets/brand_banner.dart';
 import '../item/item_edit_screen.dart';
 import '../item/item_detail_screen.dart';
 import '../settings/settings_screen.dart';
@@ -38,10 +40,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final keyBookState = ref.watch(keyBookProvider);
     final filteredItems = ref.watch(filteredItemsProvider);
+    final totalItems = keyBookState.items.length;
+    final resultCount = filteredItems.length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('密码本'),
+        title: const Text(AppConstants.appName),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
@@ -100,67 +104,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: '搜索密码...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    ref.read(searchQueryProvider.notifier).state = value;
-                  },
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(keyBookProvider.notifier).loadItems(refresh: true);
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _buildHeaderCard(
+                  state: keyBookState,
+                  totalItems: totalItems,
+                  resultCount: resultCount,
                 ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        label: const Text('全部'),
-                        selected: keyBookState.filterOption == FilterOption.all,
-                        onSelected: (_) {
-                          ref.read(keyBookProvider.notifier)
-                              .setFilterOption(FilterOption.all);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        avatar: Icon(
-                          keyBookState.filterOption == FilterOption.favorites
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 18,
-                        ),
-                        label: const Text('收藏'),
-                        selected: keyBookState.filterOption == FilterOption.favorites,
-                        onSelected: (_) {
-                          ref.read(keyBookProvider.notifier)
-                              .setFilterOption(FilterOption.favorites);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          Expanded(
-            child: _buildBody(keyBookState, filteredItems),
-          ),
-        ],
+            ..._buildBodySlivers(keyBookState, filteredItems),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -175,86 +140,192 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBody(KeyBookState state, List<KeyItemModel> items) {
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(searchQueryProvider.notifier).state = '';
+    setState(() {});
+  }
+
+  String _getSortLabel(SortOption option) {
+    return switch (option) {
+      SortOption.name => '按名称排序',
+      SortOption.createdAt => '按创建时间排序',
+      SortOption.updatedAt => '按更新时间排序',
+    };
+  }
+
+  Widget _buildHeaderCard({
+    required KeyBookState state,
+    required int totalItems,
+    required int resultCount,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            BrandBanner(
+              compact: true,
+              subtitle: state.filterOption == FilterOption.favorites
+                  ? '收藏模式已开启'
+                  : '桌面与移动端统一的加密密码体验',
+              supportingText: '已保存 $totalItems 条条目，当前显示 $resultCount 条结果',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: '搜索站点、账号或备注',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: _clearSearch,
+                      ),
+              ),
+              onChanged: (value) {
+                ref.read(searchQueryProvider.notifier).state = value;
+                setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text('全部'),
+                  selected: state.filterOption == FilterOption.all,
+                  onSelected: (_) {
+                    ref
+                        .read(keyBookProvider.notifier)
+                        .setFilterOption(FilterOption.all);
+                  },
+                ),
+                FilterChip(
+                  avatar: Icon(
+                    state.filterOption == FilterOption.favorites
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    size: 18,
+                  ),
+                  label: const Text('收藏'),
+                  selected: state.filterOption == FilterOption.favorites,
+                  onSelected: (_) {
+                    ref
+                        .read(keyBookProvider.notifier)
+                        .setFilterOption(FilterOption.favorites);
+                  },
+                ),
+                _MetaChip(
+                  icon: Icons.inventory_2_outlined,
+                  label: '$resultCount 条结果',
+                ),
+                _MetaChip(
+                  icon: Icons.swap_vert,
+                  label: _getSortLabel(state.sortOption),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildBodySlivers(KeyBookState state, List<KeyItemModel> items) {
     if (state.isLoading && items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
     }
 
     if (state.error != null && items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(state.error!),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(keyBookProvider.notifier).loadItems(refresh: true);
-              },
-              child: const Text('重试'),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(state.error!),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    ref.read(keyBookProvider.notifier).loadItems(refresh: true);
+                  },
+                  child: const Text('重试'),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      );
+      ];
     }
 
     if (items.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lock_outline, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              '暂无密码条目',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  '暂无密码条目',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '点击右下角按钮开始构建你的加密密码库',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
             ),
-            SizedBox(height: 8),
-            Text(
-              '点击下方 + 按钮添加',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
+          ),
         ),
-      );
+      ];
     }
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await ref.read(keyBookProvider.notifier).loadItems(refresh: true);
-      },
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return _KeyItemCard(
-            item: item,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ItemDetailScreen(itemId: item.apiId),
-                ),
-              );
-            },
-            onEdit: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ItemEditScreen(item: item),
-                ),
-              );
-            },
-            onDelete: () => _showDeleteDialog(item),
-            onToggleFavorite: () {
-              ref.read(keyBookProvider.notifier).toggleFavorite(item.apiId);
-            },
-          );
-        },
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final item = items[index];
+            return _KeyItemCard(
+              item: item,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ItemDetailScreen(itemId: item.apiId),
+                  ),
+                );
+              },
+              onEdit: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ItemEditScreen(item: item),
+                  ),
+                );
+              },
+              onDelete: () => _showDeleteDialog(item),
+              onToggleFavorite: () {
+                ref.read(keyBookProvider.notifier).toggleFavorite(item.apiId);
+              },
+            );
+          }, childCount: items.length),
+        ),
       ),
-    );
+    ];
   }
 
   Future<void> _showDeleteDialog(KeyItemModel item) async {
@@ -280,6 +351,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (confirmed == true) {
       await ref.read(keyBookProvider.notifier).deleteItem(item.apiId);
     }
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Chip(
+      avatar: Icon(icon, size: 18, color: colorScheme.primary),
+      label: Text(label),
+      backgroundColor: colorScheme.surface,
+      side: BorderSide(color: colorScheme.outlineVariant),
+    );
   }
 }
 
@@ -438,12 +531,19 @@ class _KeyItemCard extends StatelessWidget {
   }
 
   String _getSiteName(String url) {
-    try {
-      final uri = Uri.parse(url);
-      return uri.host.replaceFirst('www.', '');
-    } catch (e) {
-      return url;
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return '';
     }
+
+    final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
+    final uri = Uri.tryParse(normalized);
+    final host = uri?.host.trim();
+    if (host != null && host.isNotEmpty) {
+      return host.replaceFirst(RegExp(r'^www\.'), '');
+    }
+
+    return trimmed.split('/').first.replaceFirst(RegExp(r'^www\.'), '');
   }
 
   String _getSiteInitial(String url) {

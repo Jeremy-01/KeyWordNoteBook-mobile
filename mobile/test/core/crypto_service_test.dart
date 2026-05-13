@@ -1,6 +1,5 @@
-/// 加密服务测试 - TDD 方式
-/// 先写测试，后实现代码
-import 'dart:convert';
+// 加密服务测试 - TDD 方式
+// 先写测试，后实现代码
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -186,7 +185,7 @@ void main() {
       // ASSERT
       expect(hmac, isNotNull);
       expect(hmac.length, equals(64));
-      expect(RegExp(r'^[a-f0-9]{64}\$').hasMatch(hmac), isTrue);
+      expect(RegExp(r'^[a-f0-9]{64}$').hasMatch(hmac), isTrue);
     });
 
     test('相同数据和密钥应该生成相同 HMAC', () async {

@@ -5,7 +5,11 @@ class AppConstants {
   AppConstants._();
 
   /// 应用名称
-  static const String appName = '密码本';
+  static const String appName = 'KeyWordNoteBook';
+
+  static const String appTagline = '你的加密密码库';
+
+  static const String appDescription = '端到端加密、生物识别解锁与多端同步。';
 
   /// 应用版本
   static const String appVersion = '1.0.0';

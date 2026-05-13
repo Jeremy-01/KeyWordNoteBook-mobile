@@ -1,7 +1,8 @@
-/// 设置页面
+// 设置页面
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/providers/providers.dart';
 import '../../data/providers/auth_provider.dart';
 import 'profile_screen.dart';
@@ -11,11 +12,18 @@ import 'privacy_screen.dart';
 import '../import_export/export_screen.dart';
 import '../import_export/import_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _showLogoutConfirmation = false;
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final settings = ref.watch(settingsProvider);
 
@@ -54,8 +62,48 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: '使用指纹或面容快速解锁',
                 trailing: Switch(
                   value: settings.biometricEnabled,
-                  onChanged: (value) {
-                    ref.read(settingsProvider.notifier).toggleBiometric();
+                  onChanged: (value) async {
+                    final notifier = ref.read(settingsProvider.notifier);
+                    if (!value) {
+                      await notifier.setBiometricEnabled(false);
+                      return;
+                    }
+
+                    final biometricService = ref.read(biometricServiceProvider);
+                    final isSupported = await biometricService.isDeviceSupported();
+                    final biometrics = await biometricService.getAvailableBiometrics();
+
+                    if (!context.mounted) return;
+
+                    if (!isSupported || biometrics.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('当前设备未配置可用的生物识别能力')),
+                      );
+                      await notifier.setBiometricEnabled(false);
+                      return;
+                    }
+
+                    final authenticated = await biometricService.authenticate(
+                      reason: '验证身份以启用生物识别解锁',
+                      biometricOnly: true,
+                    );
+
+                    if (!context.mounted) return;
+
+                    if (!authenticated) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('生物识别验证未通过，未启用该功能')),
+                      );
+                      await notifier.setBiometricEnabled(false);
+                      return;
+                    }
+
+                    await notifier.setBiometricEnabled(true);
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('已启用生物识别解锁')),
+                    );
                   },
                 ),
               ),
@@ -137,10 +185,10 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsSection(
             title: '关于',
             children: [
-              _SettingsItem(
+                const _SettingsItem(
                 icon: Icons.info,
                 title: '版本',
-                subtitle: '1.0.0',
+                subtitle: '${AppConstants.appName} ${AppConstants.appVersion}',
               ),
               _SettingsItem(
                 icon: Icons.description,
@@ -165,39 +213,66 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('退出登录'),
-                    content: const Text('确定要退出登录吗？'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('取消'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text('退出'),
-                      ),
-                    ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showLogoutConfirmation = !_showLogoutConfirmation;
+                    });
+                  },
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text('退出登录', style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                );
-
-                if (confirmed == true) {
-                  ref.read(authProvider.notifier).logout();
-                }
-              },
-              icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text('退出登录', style: TextStyle(color: Colors.red)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+                ),
+                if (_showLogoutConfirmation) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            '确定要退出登录吗？',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _showLogoutConfirmation = false;
+                                  });
+                                },
+                                child: const Text('取消'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  setState(() {
+                                    _showLogoutConfirmation = false;
+                                  });
+                                  await ref.read(authProvider.notifier).logout();
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('退出'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 32),
@@ -211,21 +286,24 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('自动锁定时间'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [1, 5, 10, 15].map((minutes) {
-            return RadioListTile<int>(
-              title: Text('$minutes 分钟'),
-              value: minutes,
-              groupValue: ref.read(settingsProvider).autoLockMinutes,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(settingsProvider.notifier).setAutoLockDuration(value);
-                  Navigator.pop(context);
-                }
-              },
-            );
-          }).toList(),
+        content: RadioGroup<int>(
+          groupValue: ref.read(settingsProvider).autoLockMinutes,
+          onChanged: (value) {
+            if (value == null) {
+              return;
+            }
+            ref.read(settingsProvider.notifier).setAutoLockDuration(value);
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [1, 5, 10, 15].map((minutes) {
+              return RadioListTile<int>(
+                title: Text('$minutes 分钟'),
+                value: minutes,
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
